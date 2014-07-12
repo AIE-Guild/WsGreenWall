@@ -66,7 +66,8 @@ function WsGreenWall:OnDocLoaded()
 		
 		-- Register handlers for events, slash commands and timer, etc.
 		-- e.g. Apollo.RegisterEventHandler("KeyDown", "OnKeyDown", self)
-		Apollo.RegisterSlashCommand("greenwall", "OnWsGreenWallOn", self)
+		Apollo.RegisterSlashCommand("greenwall", "OnCli", self)
+        Apollo.RegisterSlashCommand("gw", "OnCli", self)
 
 		self.timer = ApolloTimer.Create(10.0, true, "OnTimer", self)
 
@@ -80,8 +81,18 @@ end
 -- Define general functions here
 
 -- on SlashCommand "/greenwall"
-function WsGreenWall:OnWsGreenWallOn()
-	self.wndMain:Invoke() -- show the window
+function WsGreenWall:OnCli(cmdStr, argStr)
+    Print('Slash command executed.')
+    
+    -- Parse the argument string.
+    local argVec = {}
+    for s in string.gmatch(argStr, '%S+') do
+        table.insert(argVec, s)
+    end
+    
+    if argVec[1] == 'config' then
+        self.wndMain:Invoke()
+    end
 end
 
 -- on timer
