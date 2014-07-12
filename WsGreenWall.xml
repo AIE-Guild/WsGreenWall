@@ -26,8 +26,8 @@
         <Control Class="Button" Base="BK3:btnHolo_Check" Font="DefaultButton" ButtonType="PushButton" RadioGroup="" LAnchorPoint="0" LAnchorOffset="32" TAnchorPoint="0" TAnchorOffset="224" RAnchorPoint="1" RAnchorOffset="-32" BAnchorPoint="0" BAnchorOffset="256" DT_VCENTER="1" DT_CENTER="0" BGColor="UI_BtnBGDefault" TextColor="UI_BtnTextDefault" NormalTextColor="UI_BtnTextDefault" PressedTextColor="UI_BtnTextDefault" FlybyTextColor="UI_BtnTextDefault" PressedFlybyTextColor="UI_BtnTextDefault" DisabledTextColor="UI_BtnTextDefault" TooltipType="OnCursor" Name="ToggleOptionOfficerChat" TooltipColor="" DrawAsCheckbox="1" Text="Bridge officer chat" TextId="">
             <Event Name="ButtonSignal" Function="OnToggleOption"/>
         </Control>
-        <Control Class="ComboBox" LAnchorPoint="0" LAnchorOffset="32" TAnchorPoint="0" TAnchorOffset="288" RAnchorPoint="1" RAnchorOffset="-32" BAnchorPoint="0" BAnchorOffset="320" RelativeToClient="1" Font="Default" Text="Debug level" BGColor="UI_WindowBGDefault" TextColor="UI_WindowTextDefault" Template="Default" TooltipType="OnCursor" Name="ComboBoxOptionDebug" TooltipColor="" TextId="" Tooltip="">
-            <Event Name="ComboBoxSelectionChanging" Function="SetOption"/>
+        <Control Class="Button" Base="BK3:btnHolo_Check" Font="DefaultButton" ButtonType="PushButton" RadioGroup="" LAnchorPoint="0" LAnchorOffset="32" TAnchorPoint="0" TAnchorOffset="288" RAnchorPoint="1" RAnchorOffset="-32" BAnchorPoint="0" BAnchorOffset="320" DT_VCENTER="1" DT_CENTER="0" BGColor="UI_BtnBGDefault" TextColor="UI_BtnTextDefault" NormalTextColor="UI_BtnTextDefault" PressedTextColor="UI_BtnTextDefault" FlybyTextColor="UI_BtnTextDefault" PressedFlybyTextColor="UI_BtnTextDefault" DisabledTextColor="UI_BtnTextDefault" TooltipType="OnCursor" Name="ToggleOptionDebug" TooltipColor="" DrawAsCheckbox="1" Text="Enable debugging output" TextId="">
+            <Event Name="ButtonSignal" Function="OnToggleOption"/>
         </Control>
     </Form>
 </Forms>
