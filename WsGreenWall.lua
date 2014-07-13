@@ -4,6 +4,7 @@
 -----------------------------------------------------------------------------------------------
  
 require "Window"
+require "os"
  
 -----------------------------------------------------------------------------------------------
 -- WsGreenWall Module Definition
@@ -13,6 +14,9 @@ local WsGreenWall = {}
 -----------------------------------------------------------------------------------------------
 -- Constants
 -----------------------------------------------------------------------------------------------
+
+local CHAN_GUILD    = ChatSystemLib.ChatChannel_Guild
+local CHAN_OFFICER  = ChatSystemLib.ChatChannel_GuildOfficer
 
 --
 -- Default configuration values
@@ -40,6 +44,25 @@ function WsGreenWall:new(o)
     for k, v in pairs(defaultOptions) do
         self.options[k] = v
     end 
+    self.player         = nil
+    self.guild          = nil
+    self.confederation  = ""
+    self.guild_tag      = ""
+    self.channel = {}
+    self.channel[CHAN_GUILD] = {
+        desc    = "Guild",
+        name    = "",
+        handle  = nil,
+        key     = nil,
+        queue   = {},
+    }
+    self.channel[CHAN_OFFICER] = {
+        desc    = "GuildOfficer",
+        name    = "",
+        handle  = nil,
+        key     = nil,
+        queue   = {},
+    }
 
     return o
 end
@@ -84,16 +107,29 @@ function WsGreenWall:OnDocLoaded()
 		-- e.g. Apollo.RegisterEventHandler("KeyDown", "OnKeyDown", self)
 		Apollo.RegisterSlashCommand("greenwall", "OnCli", self)
         Apollo.RegisterSlashCommand("gw", "OnCli", self)
+        
+        -- Register event handlers
+        Apollo.RegisterEventHandler("GuildInfoMessage", "OnGuildInfoMessageUpdate", self)
+        Apollo.RegisterEventHandler("ChatMessage", "OnChatMessage", self)
 
-		self.timer = ApolloTimer.Create(10.0, true, "OnTimer", self)
+		-- self.timer = ApolloTimer.Create(10.0, true, "OnTimer", self)
 
 		-- Do additional Addon initialization here
+		self.player = GameLib.GetPlayerUnit()
+		self:Debug("player = " .. self.player:GetName())
+		for _, g in pairs(GuildLib.GetGuilds()) do
+            if g:GetType() == GuildLib.GuildType_Guild then
+		        self.guild = g
+                self:Debug("guild = " .. self.guild:GetName())
+		        self:GetGuildConfiguration(g:GetInfoMessage())
+		    end
+	    end
 	end
 end
 
 -----------------------------------------------------------------------------------------------
 -- WsGreenWall Functions
------------------------------------------------------------------------------------------------
+------------------------------------o-----------------------------------------------------------
 -- Define general functions here
 
 -- on SlashCommand "/greenwall"
@@ -133,13 +169,57 @@ function WsGreenWall:Debug(text, force)
     if force == nil then
         force = false
     end
+    if text == nil then
+        text = ""
+    end
     if self.options.bDebug or force then
-        Print("WsGreenWall: " .. text)
+        Print("GreenWall: " .. text)
     end
 end
 
+
 -----------------------------------------------------------------------------------------------
--- WsGreenWallForm Functions
+-- Event Handlers
+-----------------------------------------------------------------------------------------------
+
+function WsGreenWall:OnGuildInfoMessageUpdate(guild)
+    local text = guild:GetInfoMessage()
+    self:GetGuildConfiguration(text)
+end
+
+function WsGreenWall:OnBridgeMessage(channel, tMsg, strSender)
+    self:Debug(string.format("received: %s", tMsg.strMsg))
+end
+
+function WsGreenWall:OnChatMessage(channel, tMsg)
+    local chanName = channel:GetName()
+    local chanType = channel:GetType()
+    if tMsg.bSelf then
+        self:ChannelEnqueue(chanType, tMsg)
+        self:Debug(string.format("%s.queue(%s)", 
+                self.channel[chanType].desc,  tMsg.arMessageSegments[1].strText))
+    end
+    -- self:ChannelFlush(chanType)
+end
+
+-----------------------------------------------------------------------------------------------
+-- Confederation Configuration
+-----------------------------------------------------------------------------------------------
+
+function WsGreenWall:GetGuildConfiguration(text)
+    local str, conf, tag, chan_name, chan_key = string.match(text, "(GW:([%w_-]+):([%w_-]*):([%w_-]+):([%w_-]*))")
+    if str ~= nil then
+        self:Debug(string.format("loaded guild configuration; confederation: %s, tag: %s, channel: %s, key: %s",
+                conf, tag, chan_name, chan_key))
+        self.confederation  = conf
+        self.guild_tag      = tag
+        self:ChannelConnect(CHAN_GUILD, chan_name, chan_key)
+    end
+end
+
+
+-----------------------------------------------------------------------------------------------
+-- User Configuration
 -----------------------------------------------------------------------------------------------
 
 function WsGreenWall:OpenConfigForm()
@@ -187,7 +267,48 @@ end
 
 
 -----------------------------------------------------------------------------------------------
+-- Chat Channel Functions
+-----------------------------------------------------------------------------------------------
+
+function WsGreenWall:ChannelConnect(id, name, key)
+    local handle = ICCommLib.JoinChannel(name, "OnBridgeMessage", self)
+    
+    if handle == nil then
+        self:Debug(string.format("ERROR - cannot connect to bridge channel: %s", name))
+    else
+        self.channel[id].name   = name
+        self.channel[id].handle = handle
+        self.channel[id].key    = key
+        self:Debug(string.format("connected to bridge channel: %s", name))
+    end    
+end
+
+function WsGreenWall:ChannelEnqueue(id, data)
+    table.insert(self.channel[id].queue, data)
+end
+
+function WsGreenWall:ChannelDequeue(id)
+    if len(self.channel[id].queue) > 0 then
+        return table.remove(self.channel[id].queue, 1)
+    end
+end
+
+function WsGreenWall:ChannelFlush(id)
+    if self.channel[id].handle ~= nil then
+        while len(self.channel[id].queue) > 0 do
+            local tMsg = self:ChannelDequeue(id)
+            -- self.channel[id].handle:SendMessage(tMsg)
+            self:Debug(string.format("%s.Tx(%s)",
+                    self.channel[id].desc, tMsg.arMessageSegments[1].strText))
+        end            
+    end
+end
+
+
+-----------------------------------------------------------------------------------------------
 -- WsGreenWall Instance
 -----------------------------------------------------------------------------------------------
+
 local WsGreenWallInst = WsGreenWall:new()
 WsGreenWallInst:Init()
+
