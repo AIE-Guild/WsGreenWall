@@ -15,8 +15,8 @@ local WsGreenWall = {}
 -- Constants
 -----------------------------------------------------------------------------------------------
 
-local CHAN_GUILD    = ChatSystemLib.ChatChannel_Guild
-local CHAN_OFFICER  = ChatSystemLib.ChatChannel_GuildOfficer
+local CHAN_GUILD    = 1
+local CHAN_OFFICER  = 2
 
 --
 -- Default configuration values
@@ -179,6 +179,20 @@ end
 
 
 -----------------------------------------------------------------------------------------------
+-- Utility Functions
+-----------------------------------------------------------------------------------------------
+
+local function ChanType2Id(chanType)
+    if chanType == ChatSystemLib.ChatChannel_Guild then
+        return CHAN_GUILD
+    elseif chanType == ChatSystemLib.ChatChannel_GuildOfficer then
+        return CHAN_OFFICER
+    end
+    return
+end
+
+
+-----------------------------------------------------------------------------------------------
 -- Event Handlers
 -----------------------------------------------------------------------------------------------
 
@@ -195,11 +209,12 @@ function WsGreenWall:OnChatMessage(channel, tMsg)
     local chanName = channel:GetName()
     local chanType = channel:GetType()
     if tMsg.bSelf then
-        self:ChannelEnqueue(chanType, tMsg)
+        local chanId = ChanType2Id(chanType)
+        self:ChannelEnqueue(chanId, tMsg)
         self:Debug(string.format("%s.queue(%s)", 
-                self.channel[chanType].desc,  tMsg.arMessageSegments[1].strText))
+                self.channel[chanId].desc,  tMsg.arMessageSegments[1].strText))
+        self:ChannelFlush(chanId)
     end
-    -- self:ChannelFlush(chanType)
 end
 
 -----------------------------------------------------------------------------------------------
@@ -288,16 +303,17 @@ function WsGreenWall:ChannelEnqueue(id, data)
 end
 
 function WsGreenWall:ChannelDequeue(id)
-    if len(self.channel[id].queue) > 0 then
+    if table.getn(self.channel[id].queue) > 0 then
         return table.remove(self.channel[id].queue, 1)
     end
 end
 
 function WsGreenWall:ChannelFlush(id)
+    self:Debug(string.format("flushing channel %d", id))
     if self.channel[id].handle ~= nil then
-        while len(self.channel[id].queue) > 0 do
+        while table.getn(self.channel[id].queue) > 0 do
             local tMsg = self:ChannelDequeue(id)
-            -- self.channel[id].handle:SendMessage(tMsg)
+            self.channel[id].handle:SendMessage(tMsg)
             self:Debug(string.format("%s.Tx(%s)",
                     self.channel[id].desc, tMsg.arMessageSegments[1].strText))
         end            
