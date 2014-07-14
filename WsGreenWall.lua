@@ -190,7 +190,11 @@ function WsGreenWall:GetConfiguration()
             self:Debug(string.format("loaded guild configuration; confederation: %s, tag: %s, channel: %s, key: %s",
                     conf, tag, chan_name, chan_key))
             self.confederation  = conf
-            self.guild_tag      = tag
+            if string.len(tag) > 0 then
+                self.guild_tag      = tag
+            else
+                self.guild_tag      = self.guild
+            end
             self:ChannelConnect(CHAN_GUILD, chan_name, chan_key)
             return true
         end
@@ -266,20 +270,15 @@ end
 
 function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
     if tBundle.confederation == self.confederation and tBundle.guild ~= self.guild then
-        local chanId = tBundle.id
+        local chanId = tBundle.type
         if type(self.channel[chanId]) ~= nil then
             self:Debug(string.format("%s.Rx(%s, %s, %s)", 
                     self.channel[chanId].desc,
                     tBundle.confederation,
                     tBundle.guild_tag,
-                    tBundle.message.strMsg))
-        
-            if self.options.tag then
-                tBundle.message.strMsg = string.format("<%s> %s", tBundle.guild_tag, tBundle.message.strMsg)
-            end
-        
+                    tBundle.message.arMessageSegments[1].strText))
             -- Generate and event for the received chat message.
-            Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, tBundle.message.strMsg)
+            Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, tBundle.message)
         end
     end
 end
@@ -319,6 +318,7 @@ function WsGreenWall:OpenConfigForm()
     self.wndMain:FindChild("ToggleOptionDebug"):SetCheck(self.scratch.bDebug)
     
     -- Future features
+    self.wndMain:FindChild("ToggleOptionTag"):Enable(false)
     self.wndMain:FindChild("ToggleOptionAchievement"):Enable(false)
     self.wndMain:FindChild("ToggleOptionRoster"):Enable(false)
     self.wndMain:FindChild("ToggleOptionRank"):Enable(false)
