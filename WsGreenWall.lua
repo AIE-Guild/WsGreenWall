@@ -32,6 +32,28 @@ local defaultOptions = {
 
  
 -----------------------------------------------------------------------------------------------
+-- Utility Functions
+-----------------------------------------------------------------------------------------------
+
+local function ChanType2Id(chanType)
+    if chanType == ChatSystemLib.ChatChannel_Guild then
+        return CHAN_GUILD
+    elseif chanType == ChatSystemLib.ChatChannel_GuildOfficer then
+        return CHAN_OFFICER
+    end
+    return
+end
+
+local function GetChannel(chanType)
+    for _, v in pairs(ChatSystemLib.GetChannels()) do
+        if v:GetType() == chanType then
+            return v
+        end
+    end            
+end
+
+
+-----------------------------------------------------------------------------------------------
 -- Initialization
 -----------------------------------------------------------------------------------------------
 function WsGreenWall:new(o)
@@ -55,6 +77,7 @@ function WsGreenWall:new(o)
         handle  = nil,
         key     = nil,
         queue   = {},
+        target  = nil,
     }
     self.channel[CHAN_OFFICER] = {
         desc    = "GuildOfficer",
@@ -62,6 +85,7 @@ function WsGreenWall:new(o)
         handle  = nil,
         key     = nil,
         queue   = {},
+        target  = nil,
     }
 
     return o
@@ -124,6 +148,8 @@ function WsGreenWall:OnDocLoaded()
 		        self:GetGuildConfiguration(g:GetInfoMessage())
 		    end
 	    end
+	    self.channel[CHAN_GUILD].target   = GetChannel(ChatSystemLib.ChatChannel_Guild)
+        self.channel[CHAN_OFFICER].target = GetChannel(ChatSystemLib.ChatChannel_GuildOfficer)
 	end
 end
 
@@ -179,20 +205,6 @@ end
 
 
 -----------------------------------------------------------------------------------------------
--- Utility Functions
------------------------------------------------------------------------------------------------
-
-local function ChanType2Id(chanType)
-    if chanType == ChatSystemLib.ChatChannel_Guild then
-        return CHAN_GUILD
-    elseif chanType == ChatSystemLib.ChatChannel_GuildOfficer then
-        return CHAN_OFFICER
-    end
-    return
-end
-
-
------------------------------------------------------------------------------------------------
 -- Event Handlers
 -----------------------------------------------------------------------------------------------
 
@@ -201,19 +213,32 @@ function WsGreenWall:OnGuildInfoMessageUpdate(guild)
     self:GetGuildConfiguration(text)
 end
 
-function WsGreenWall:OnBridgeMessage(channel, tMsg, strSender)
-    self:Debug(string.format("received: %s", tMsg.strMsg))
+function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
+    if tBundle.confederation == self.confederation and tBundle.guild ~= self.guild then
+        local chanId = ChanType2Id(channel:GetType())
+        self:Debug(string.format("%s.Rx(%s)", self.channel[chanId].desc, tBundle.message.strMsg))
+        
+        if self.options.tag then
+            tBundle.message.strMsg = string.format("<%s> %s", tBundle.guild_tag, tBundle.message.strMsg)
+        end
+        
+        -- Generate and event for the received chat message.
+        Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, tBundle.message.strMsg)
+    end
 end
 
 function WsGreenWall:OnChatMessage(channel, tMsg)
     local chanName = channel:GetName()
     local chanType = channel:GetType()
-    if tMsg.bSelf then
-        local chanId = ChanType2Id(chanType)
-        self:ChannelEnqueue(chanId, tMsg)
-        self:Debug(string.format("%s.queue(%s)", 
-                self.channel[chanId].desc,  tMsg.arMessageSegments[1].strText))
-        self:ChannelFlush(chanId)
+    if chanType == ChatSystemLib.ChatChannel_Guild or 
+            chanType == ChatSystemLib.ChatChannel_GuildOfficer then
+        if tMsg.bSelf then
+            local chanId = ChanType2Id(chanType)
+            self:ChannelEnqueue(chanId, tMsg)
+            self:Debug(string.format("%s.queue(%s)", 
+                    self.channel[chanId].desc,  tMsg.arMessageSegments[1].strText))
+            self:ChannelFlush(chanId)
+        end
     end
 end
 
@@ -251,6 +276,11 @@ function WsGreenWall:OpenConfigForm()
     self.wndMain:FindChild("ToggleOptionRank"):SetCheck(self.scratch.bRank)
     self.wndMain:FindChild("ToggleOptionOfficerChat"):SetCheck(self.scratch.bOfficerChat)
     self.wndMain:FindChild("ToggleOptionDebug"):SetCheck(self.scratch.bDebug)
+    
+    -- Future features
+    self.wndMain:FindChild("ToggleOptionAchievement"):Enable(false)
+    self.wndMain:FindChild("ToggleOptionRoster"):Enable(false)
+    self.wndMain:FindChild("ToggleOptionRank"):Enable(false)
         
     self.wndMain:Invoke()
 end
@@ -313,7 +343,15 @@ function WsGreenWall:ChannelFlush(id)
     if self.channel[id].handle ~= nil then
         while table.getn(self.channel[id].queue) > 0 do
             local tMsg = self:ChannelDequeue(id)
-            self.channel[id].handle:SendMessage(tMsg)
+            local tBundle = {
+                confederation   = self.confederation,
+                guild           = self.guild,
+                guild_tag       = self.guild_tag,
+                encrypted       = false,
+                nonce           = nil,
+                message         = tMsg,
+            }
+            self.channel[id].handle:SendMessage(tBundle)
             self:Debug(string.format("%s.Tx(%s)",
                     self.channel[id].desc, tMsg.arMessageSegments[1].strText))
         end            
