@@ -228,15 +228,21 @@ end
 
 function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
     if tBundle.confederation == self.confederation and tBundle.guild ~= self.guild then
-        local chanId = ChanType2Id(channel:GetType())
-        self:Debug(string.format("%s.Rx(%s)", self.channel[chanId].desc, tBundle.message.strMsg))
+        local chanId = tBundle.id
+        if type(self.channel[chanId]) ~= nil then
+            self:Debug(string.format("%s.Rx(%s, %s, %s)", 
+                    self.channel[chanId].desc,
+                    tBundle.confederation,
+                    tBundle.guild_tag,
+                    tBundle.message.strMsg))
         
-        if self.options.tag then
-            tBundle.message.strMsg = string.format("<%s> %s", tBundle.guild_tag, tBundle.message.strMsg)
+            if self.options.tag then
+                tBundle.message.strMsg = string.format("<%s> %s", tBundle.guild_tag, tBundle.message.strMsg)
+            end
+        
+            -- Generate and event for the received chat message.
+            Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, tBundle.message.strMsg)
         end
-        
-        -- Generate and event for the received chat message.
-        Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, tBundle.message.strMsg)
     end
 end
 
@@ -360,13 +366,17 @@ function WsGreenWall:ChannelFlush(id)
                 confederation   = self.confederation,
                 guild           = self.guild,
                 guild_tag       = self.guild_tag,
+                type            = id,
                 encrypted       = false,
                 nonce           = nil,
                 message         = tMsg,
             }
             self.channel[id].handle:SendMessage(tBundle)
-            self:Debug(string.format("%s.Tx(%s)",
-                    self.channel[id].desc, tMsg.arMessageSegments[1].strText))
+            self:Debug(string.format("%s.Tx(%s, %s, %s)",
+                    self.channel[id].desc,
+                    tBundle.confederation,
+                    tBundle.guild_tag,
+                    tMsg.arMessageSegments[1].strText))
         end            
     end
 end
