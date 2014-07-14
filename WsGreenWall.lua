@@ -260,7 +260,7 @@ end
 -----------------------------------------------------------------------------------------------
 
 function WsGreenWall:GetGuildConfiguration(text)
-    local str, conf, tag, chan_name, chan_key = string.match(text, "(GW:([%w_-]+):([%w_-]*):([%w_-]+):([%w_-]*))")
+    local str, conf, tag, chan_name, chan_key = string.match(text, "(GW:([%w _-]+):([%w _-]*):([%w_-]+):([%w_-]*))")
     if str ~= nil then
         self:Debug(string.format("loaded guild configuration; confederation: %s, tag: %s, channel: %s, key: %s",
                 conf, tag, chan_name, chan_key))
