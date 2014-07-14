@@ -1,3 +1,20 @@
+<!--
+    WsGreenWall -- Guild chat bridging for WildStar.
+    Copyright (C) 2014  Mark Rogaski
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/> 
+-->
 <?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
 <Forms>
     <Form Class="Window" LAnchorPoint="0" LAnchorOffset="61" TAnchorPoint="0" TAnchorOffset="52" RAnchorPoint="0" RAnchorOffset="480" BAnchorPoint="0" BAnchorOffset="640" RelativeToClient="1" Font="Default" Text="" Template="CRB_NormalFramedThick_StandardHdrFtr" Name="WsGreenWallForm" Border="0" Picture="0" SwallowMouseClicks="1" Moveable="1" Escapable="1" Overlapped="1" BGColor="ffffffff" TextColor="ffffffff" TextId="" TooltipColor="" Tooltip="">
