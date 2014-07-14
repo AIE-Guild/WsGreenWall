@@ -30,7 +30,7 @@ WsGreenWall is designed to require minimal configuration.  Only the guild office
 
 The required configuration for the "confederation" of guilds is a single line in the Additional Info section of the Guild tab in the Social window.  The line should be of the following format.
 
-    GW:<confederation>:<guild_tag>:<channel_name>:<encryption_key>
+    GWc:<confederation>:<guild_tag>:<channel_name>:<encryption_key>
 
 The elements are as follows:
 
@@ -39,3 +39,6 @@ The elements are as follows:
 - channel_name -- The name of the hidden channel used to transport messages between confederation guilds.
 - encryption_key -- An optional key to be used for encrypting messages between confederation guilds.  **This is currently not implemented.**
 
+Example:
+
+    GWc:Blue Sun:AIE:BlueSunBridge:

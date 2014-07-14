@@ -78,7 +78,8 @@ function WsGreenWall:new(o)
     self.options = {}
     for k, v in pairs(defaultOptions) do
         self.options[k] = v
-    end 
+    end
+    self.ready          = false
     self.player         = nil
     self.guild          = nil
     self.confederation  = ""
@@ -126,6 +127,7 @@ end
 -----------------------------------------------------------------------------------------------
 -- WsGreenWall OnDocLoaded
 -----------------------------------------------------------------------------------------------
+
 function WsGreenWall:OnDocLoaded()
 
 	if self.xmlDoc ~= nil and self.xmlDoc:IsLoaded() then
@@ -149,22 +151,53 @@ function WsGreenWall:OnDocLoaded()
         Apollo.RegisterEventHandler("GuildInfoMessage", "OnGuildInfoMessageUpdate", self)
         Apollo.RegisterEventHandler("ChatMessage", "OnChatMessage", self)
 
-		-- self.timer = ApolloTimer.Create(10.0, true, "OnTimer", self)
+        -- Start the timer
+		self.timer = ApolloTimer.Create(3.0, true, "OnTimer", self)
 
 		-- Do additional Addon initialization here
-		self.player = GameLib.GetPlayerUnit()
-		self:Debug("player = " .. self.player:GetName())
-		for _, g in pairs(GuildLib.GetGuilds()) do
-            if g:GetType() == GuildLib.GuildType_Guild then
-		        self.guild = g
-                self:Debug("guild = " .. self.guild:GetName())
-		        self:GetGuildConfiguration(g:GetInfoMessage())
-		    end
-	    end
 	    self.channel[CHAN_GUILD].target   = GetChannel(ChatSystemLib.ChatChannel_Guild)
         self.channel[CHAN_OFFICER].target = GetChannel(ChatSystemLib.ChatChannel_GuildOfficer)
+        self.ready = self:GetConfiguration()
 	end
 end
+
+
+-----------------------------------------------------------------------------------------------
+-- Configuration
+-----------------------------------------------------------------------------------------------
+function WsGreenWall:GetConfiguration()
+    if self.player == nil then
+        local player = GameLib.GetPlayerUnit()
+        if player == nil then
+            return false
+        else
+            self.player = player
+            self:Debug("player = " .. player:GetName())
+        end
+    end
+    if self.guild == nil then
+        for _, guild in pairs(GuildLib.GetGuilds()) do
+            if guild:GetType() == GuildLib.GuildType_Guild then
+                self.guild = guild
+                self:Debug("guild = " .. guild:GetName())
+            end
+        end
+    end
+    if self.guild ~= nil then
+        local text = self.guild:GetInfoMessage()
+        local str, conf, tag, chan_name, chan_key = string.match(text, "(GWc:([%w _-]+):([%w _-]*):([%w_-]+):([%w_-]*))")
+        if str ~= nil then
+            self:Debug(string.format("loaded guild configuration; confederation: %s, tag: %s, channel: %s, key: %s",
+                    conf, tag, chan_name, chan_key))
+            self.confederation  = conf
+            self.guild_tag      = tag
+            self:ChannelConnect(CHAN_GUILD, chan_name, chan_key)
+            return true
+        end
+    end
+    return false
+end
+
 
 -----------------------------------------------------------------------------------------------
 -- WsGreenWall Functions
@@ -179,6 +212,12 @@ end
 -- on timer
 function WsGreenWall:OnTimer()
 	-- Do your timer-related stuff here.
+    if not self.ready then
+        self.ready = self:GetConfiguration()
+    end
+    for k, _ in pairs(self.channel) do
+        self:ChannelFlush(k)
+    end
 end
 
 --
@@ -222,21 +261,26 @@ end
 -----------------------------------------------------------------------------------------------
 
 function WsGreenWall:OnGuildInfoMessageUpdate(guild)
-    local text = guild:GetInfoMessage()
-    self:GetGuildConfiguration(text)
+    self.ready = self:GetConfiguration()
 end
 
 function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
     if tBundle.confederation == self.confederation and tBundle.guild ~= self.guild then
-        local chanId = ChanType2Id(channel:GetType())
-        self:Debug(string.format("%s.Rx(%s)", self.channel[chanId].desc, tBundle.message.strMsg))
+        local chanId = tBundle.id
+        if type(self.channel[chanId]) ~= nil then
+            self:Debug(string.format("%s.Rx(%s, %s, %s)", 
+                    self.channel[chanId].desc,
+                    tBundle.confederation,
+                    tBundle.guild_tag,
+                    tBundle.message.strMsg))
         
-        if self.options.tag then
-            tBundle.message.strMsg = string.format("<%s> %s", tBundle.guild_tag, tBundle.message.strMsg)
+            if self.options.tag then
+                tBundle.message.strMsg = string.format("<%s> %s", tBundle.guild_tag, tBundle.message.strMsg)
+            end
+        
+            -- Generate and event for the received chat message.
+            Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, tBundle.message.strMsg)
         end
-        
-        -- Generate and event for the received chat message.
-        Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, tBundle.message.strMsg)
     end
 end
 
@@ -254,22 +298,6 @@ function WsGreenWall:OnChatMessage(channel, tMsg)
         end
     end
 end
-
------------------------------------------------------------------------------------------------
--- Confederation Configuration
------------------------------------------------------------------------------------------------
-
-function WsGreenWall:GetGuildConfiguration(text)
-    local str, conf, tag, chan_name, chan_key = string.match(text, "(GW:([%w _-]+):([%w _-]*):([%w_-]+):([%w_-]*))")
-    if str ~= nil then
-        self:Debug(string.format("loaded guild configuration; confederation: %s, tag: %s, channel: %s, key: %s",
-                conf, tag, chan_name, chan_key))
-        self.confederation  = conf
-        self.guild_tag      = tag
-        self:ChannelConnect(CHAN_GUILD, chan_name, chan_key)
-    end
-end
-
 
 -----------------------------------------------------------------------------------------------
 -- User Configuration
@@ -352,21 +380,27 @@ function WsGreenWall:ChannelDequeue(id)
 end
 
 function WsGreenWall:ChannelFlush(id)
-    self:Debug(string.format("flushing channel %d", id))
     if self.channel[id].handle ~= nil then
-        while table.getn(self.channel[id].queue) > 0 do
-            local tMsg = self:ChannelDequeue(id)
-            local tBundle = {
-                confederation   = self.confederation,
-                guild           = self.guild,
-                guild_tag       = self.guild_tag,
-                encrypted       = false,
-                nonce           = nil,
-                message         = tMsg,
-            }
-            self.channel[id].handle:SendMessage(tBundle)
-            self:Debug(string.format("%s.Tx(%s)",
-                    self.channel[id].desc, tMsg.arMessageSegments[1].strText))
+        if table.getn(self.channel[id].queue) > 0 then
+            self:Debug(string.format("flushing channel %d", id))
+            while table.getn(self.channel[id].queue) > 0 do
+                local tMsg = self:ChannelDequeue(id)
+                local tBundle = {
+                    confederation   = self.confederation,
+                    guild           = self.guild,
+                    guild_tag       = self.guild_tag,
+                    type            = id,
+                    encrypted       = false,
+                    nonce           = nil,
+                    message         = tMsg,
+                }
+                self.channel[id].handle:SendMessage(tBundle)
+                self:Debug(string.format("%s.Tx(%s, %s, %s)",
+                        self.channel[id].desc,
+                        tBundle.confederation,
+                        tBundle.guild_tag,
+                        tMsg.arMessageSegments[1].strText))
+            end
         end            
     end
 end
