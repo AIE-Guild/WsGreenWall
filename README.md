@@ -8,7 +8,7 @@ Distribution
 
 This WildStar addon is currently available on [GitHub](https://github.com).
 
-[https://github.com/mrogaski/WsGreenWall](https://github.com/mrogaski/WsGreenWall)
+[https://github.com/AIE-Guild/WsGreenWall](https://github.com/AIE-Guild/WsGreenWall)
 
 
 Installation
