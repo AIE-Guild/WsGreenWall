@@ -289,8 +289,10 @@ function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
                     tBundle.confederation,
                     tBundle.guild_tag,
                     tBundle.message.arMessageSegments[1].strText))
-            -- Generate and event for the received chat message.
-            Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, tBundle.message)
+            if tBundle.guild_tag ~= self.guild_tag then
+                -- Generate and event for the received chat message.
+                Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, tBundle.message)
+            end
         end
     end
 end
