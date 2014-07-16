@@ -1,5 +1,5 @@
-<?xml version="1.0.0-alpha.1" encoding="UTF-8"?>
-<Addon Author="Mark Rogaski" APIVersion="8" Name="WsGreenWall" Description="Guild chat bridging for WildStar.">
+<?xml version="1.0.0-alpha.4" encoding="UTF-8"?>
+<Addon Author="Mark Rogaski" APIVersion="9" Name="WsGreenWall" Description="Guild chat bridging for WildStar.">
     <Script Name="WsGreenWall.lua"/>
     <Form Name="WsGreenWall.xml"/>
 </Addon>
