@@ -300,7 +300,7 @@ function WsGreenWall:OnChatMessage(channel, tMsg)
     local chanType = channel:GetType()
     if chanType == ChatSystemLib.ChatChannel_Guild or 
             chanType == ChatSystemLib.ChatChannel_GuildOfficer then
-        if tMsg.bSelf then
+        if tMsg.bSelf and tMsg.strSender == self.player:GetName() then
             local chanId = ChanType2Id(chanType)
             self:ChannelEnqueue(chanId, tMsg)
             self:Debug(string.format("%s.queue(%s)", 
@@ -395,7 +395,8 @@ end
 function WsGreenWall:ChannelFlush(id)
     if self.channel[id].handle ~= nil then
         if table.getn(self.channel[id].queue) > 0 then
-            self:Debug(string.format("flushing channel %d", id))
+            self:Debug(string.format("flushing channel %d (%d)",
+                       id, table.getn(self.channel[id].queue)))
             while table.getn(self.channel[id].queue) > 0 do
                 local tMsg = self:ChannelDequeue(id)
                 local tBundle = {
@@ -414,6 +415,7 @@ function WsGreenWall:ChannelFlush(id)
                         tBundle.guild_tag,
                         tMsg.arMessageSegments[1].strText))
             end
+            self:Debug(string.format("channel %d queue empty", id))
         end            
     end
 end
