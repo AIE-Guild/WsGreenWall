@@ -65,6 +65,18 @@ local function GetChannel(chanType)
     end            
 end
 
+function WsGreenWall:Debug(text, force)
+    if force == nil then
+        force = false
+    end
+    if text == nil then
+        text = ""
+    end
+    if self.options.bDebug or force then
+        Print("GreenWall: " .. text)
+    end
+end
+
 
 -----------------------------------------------------------------------------------------------
 -- Initialization
@@ -82,8 +94,8 @@ function WsGreenWall:new(o)
     self.ready          = false
     self.player         = nil
     self.guild          = nil
-    self.confederation  = ""
-    self.guild_tag      = ""
+    self.confederation  = nil
+    self.guild_tag      = nil
     self.channel = {}
     self.channel[CHAN_GUILD] = {
         desc    = "Guild",
@@ -124,6 +136,7 @@ function WsGreenWall:OnLoad()
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
 end
 
+
 -----------------------------------------------------------------------------------------------
 -- WsGreenWall OnDocLoaded
 -----------------------------------------------------------------------------------------------
@@ -152,12 +165,11 @@ function WsGreenWall:OnDocLoaded()
         Apollo.RegisterEventHandler("ChatMessage", "OnChatMessage", self)
 
         -- Start the timer
-		self.timer = ApolloTimer.Create(3.0, true, "OnTimer", self)
+		self.timer = ApolloTimer.Create(1.0, true, "OnTimer", self)
 
 		-- Do additional Addon initialization here
 	    self.channel[CHAN_GUILD].target   = GetChannel(ChatSystemLib.ChatChannel_Guild)
         self.channel[CHAN_OFFICER].target = GetChannel(ChatSystemLib.ChatChannel_GuildOfficer)
-        self.ready = self:GetConfiguration()
 	end
 end
 
@@ -165,16 +177,10 @@ end
 -----------------------------------------------------------------------------------------------
 -- Configuration
 -----------------------------------------------------------------------------------------------
-function WsGreenWall:GetConfiguration()
-    if self.player == nil then
-        local player = GameLib.GetPlayerUnit()
-        if player == nil then
-            return false
-        else
-            self.player = player
-            self:Debug("player = " .. player:GetName())
-        end
-    end
+function WsGreenWall:GetGuildConfiguration()
+    assert(self.player ~= nil)
+    
+    -- Check guild membership
     if self.guild == nil then
         for _, guild in pairs(GuildLib.GetGuilds()) do
             if guild:GetType() == GuildLib.GuildType_Guild then
@@ -183,23 +189,37 @@ function WsGreenWall:GetConfiguration()
             end
         end
     end
-    if self.guild ~= nil then
+    
+    if self.guild == nil then
+        self.timer:Stop()
+    else
         local text = self.guild:GetInfoMessage()
-        local str, conf, tag, chan_name, chan_key = string.match(text, "(GWc:([%w _-]+):([%w _-]*):([%w_-]+):([%w_-]*))")
-        if str ~= nil then
-            self:Debug(string.format("loaded guild configuration; confederation: %s, tag: %s, channel: %s, key: %s",
-                    conf, tag, chan_name, chan_key))
-            self.confederation  = conf
-            if string.len(tag) > 0 then
-                self.guild_tag      = tag
-            else
-                self.guild_tag      = self.guild
+        local chanName, chanKey
+        self.confederation, self.guild_tag, chanName, chanKey = self:ParseInfoMessage(text)
+        if self.confederation ~= nil and chanName ~= nil then
+            if self.guild_tag == nil then
+                self.guild_tag = self.guild:GetName()
             end
-            self:ChannelConnect(CHAN_GUILD, chan_name, chan_key)
-            return true
-        end
+            self:Debug("confederation = " .. self.confederation)
+            self:Debug("guild_tag = " .. self.guild_tag)
+
+            self:ChannelConnect(CHAN_GUILD, chanName, chanKey)
+
+            -- Configuration is complete
+            self.ready = true
+            self.timer:Stop()
+        end 
     end
-    return false
+
+end
+
+function WsGreenWall:ParseInfoMessage(text)
+    local conf, tag, chan, key
+    conf, chan, tag = string.match(text, "GWc:([%w _-]+):([%w_-]+):([%w _-]*):")
+    if conf ~= nil then
+        key = string.match(text, "GWe:([^:]+)")        
+    end
+    return conf, tag, chan, key
 end
 
 
@@ -215,12 +235,16 @@ end
 
 -- on timer
 function WsGreenWall:OnTimer()
-	-- Do your timer-related stuff here.
-    if not self.ready then
-        self.ready = self:GetConfiguration()
-    end
-    for k, _ in pairs(self.channel) do
-        self:ChannelFlush(k)
+    if self.player == nil then
+        self.player = GameLib.GetPlayerUnit()
+        if self.player ~= nil then
+            self:Debug("player = " .. self.player:GetName())
+            self:GetGuildConfiguration()
+        end
+    elseif not self.ready then
+        self:GetGuildConfiguration()
+    else
+        self.timer:Stop()
     end
 end
 
@@ -247,25 +271,13 @@ function WsGreenWall:OnRestore(eLevel, buffer)
     end
 end
 
-function WsGreenWall:Debug(text, force)
-    if force == nil then
-        force = false
-    end
-    if text == nil then
-        text = ""
-    end
-    if self.options.bDebug or force then
-        Print("GreenWall: " .. text)
-    end
-end
-
 
 -----------------------------------------------------------------------------------------------
 -- Event Handlers
 -----------------------------------------------------------------------------------------------
 
 function WsGreenWall:OnGuildInfoMessageUpdate(guild)
-    self.ready = self:GetConfiguration()
+    self:GetGuildConfiguration()
 end
 
 function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
@@ -297,6 +309,7 @@ function WsGreenWall:OnChatMessage(channel, tMsg)
         end
     end
 end
+
 
 -----------------------------------------------------------------------------------------------
 -- User Configuration
