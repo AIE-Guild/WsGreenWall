@@ -35,7 +35,7 @@ require "os"
 -----------------------------------------------------------------------------------------------
 -- Included libraries
 -----------------------------------------------------------------------------------------------
---local salsa20 = require "Libs/salsa20"
+local Salsa20 = nil
  
 -----------------------------------------------------------------------------------------------
 -- WsGreenWall Module Definition
@@ -154,7 +154,7 @@ function WsGreenWall:Init()
 	local bHasConfigureFunction = false
 	local strConfigureButtonText = ""
 	local tDependencies = {
-		-- "UnitOrPackageName",
+		"Crypto:Salsa20-1.0",
 	}
     Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
@@ -164,6 +164,9 @@ end
 -- WsGreenWall OnLoad
 -----------------------------------------------------------------------------------------------
 function WsGreenWall:OnLoad()
+    -- load libraries
+    Salsa20 = Apollo.GetPackage("Crypto:Salsa20-1.0").tPackage
+    
     -- load our form file
 	self.xmlDoc = XmlDoc.CreateFromFile("WsGreenWall.xml")
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
