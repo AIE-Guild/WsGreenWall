@@ -16,8 +16,16 @@
 -- along with this program.  If not, see <http://www.gnu.org/licenses/>
 -----------------------------------------------------------------------------------------------
  
+-----------------------------------------------------------------------------------------------
+-- System libraries
+-----------------------------------------------------------------------------------------------
 require "Window"
 require "os"
+
+-----------------------------------------------------------------------------------------------
+-- Included libraries
+-----------------------------------------------------------------------------------------------
+--local salsa20 = require "Libs/salsa20"
  
 -----------------------------------------------------------------------------------------------
 -- WsGreenWall Module Definition
@@ -63,6 +71,38 @@ local function GetChannel(chanType)
             return v
         end
     end            
+end
+
+local function TransmogrifyMessage(tMessage, f)
+    local clone = {}
+    for k, v in pairs(tMessage) do
+        if k == "arMessageSegments" then
+            clone.arMessageSegments = {}
+            local t = {}
+            for i, m in ipairs(v) do
+                t[i] = m.strText
+            end
+            t = f(t)
+            for i, m in ipairs(v) do
+                clone.arMessageSegments[i] = {
+                    strText = t[i],
+                    bAlien = v.bAlien,
+                    bRolePlay = v.bRolePlay,
+                }
+            end
+        else
+            clone[k] = v
+        end
+    end
+    return clone
+end
+
+local function CapsTable(t)
+    local s = {}
+    for i, v in ipairs(t) do
+        s[i] = string.upper(v)
+    end
+    return s
 end
 
 function WsGreenWall:Debug(text, force)
@@ -291,7 +331,9 @@ function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
                     tBundle.message.arMessageSegments[1].strText))
             if tBundle.guild_tag ~= self.guild_tag then
                 -- Generate and event for the received chat message.
-                Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, tBundle.message)
+                Event_FireGenericEvent("ChatMessage", 
+                                       self.channel[chanId].target,
+                                       tBundle.message)
             end
         end
     end
@@ -400,7 +442,7 @@ function WsGreenWall:ChannelFlush(id)
             self:Debug(string.format("flushing channel %d (%d)",
                        id, table.getn(self.channel[id].queue)))
             while table.getn(self.channel[id].queue) > 0 do
-                local tMsg = self:ChannelDequeue(id)
+                local tMsg = TransmogrifyMessage(self:ChannelDequeue(id), CapsTable)
                 local tBundle = {
                     confederation   = self.confederation,
                     guild           = self.guild,
