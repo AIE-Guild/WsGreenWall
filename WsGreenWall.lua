@@ -73,36 +73,19 @@ local function GetChannel(chanType)
     end            
 end
 
-local function TransmogrifyMessage(tMessage, f)
-    local clone = {}
-    for k, v in pairs(tMessage) do
-        if k == "arMessageSegments" then
-            clone.arMessageSegments = {}
-            local t = {}
-            for i, m in ipairs(v) do
-                t[i] = m.strText
-            end
-            t = f(t)
-            for i, m in ipairs(v) do
-                clone.arMessageSegments[i] = {
-                    strText = t[i],
-                    bAlien = v.bAlien,
-                    bRolePlay = v.bRolePlay,
-                }
-            end
-        else
-            clone[k] = v
+local function DeepCopy(orig)
+    local orig_type = type(orig)
+    local copy
+    if orig_type == 'table' then
+        copy = {}
+        for orig_key, orig_value in next, orig, nil do
+            copy[DeepCopy(orig_key)] = DeepCopy(orig_value)
         end
+        setmetatable(copy, DeepCopy(getmetatable(orig)))
+    else -- number, string, boolean, etc
+        copy = orig
     end
-    return clone
-end
-
-local function CapsTable(t)
-    local s = {}
-    for i, v in ipairs(t) do
-        s[i] = string.upper(v)
-    end
-    return s
+    return copy
 end
 
 function WsGreenWall:Debug(text, force)
@@ -331,9 +314,11 @@ function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
                     tBundle.message.arMessageSegments[1].strText))
             if tBundle.guild_tag ~= self.guild_tag then
                 -- Generate and event for the received chat message.
-                Event_FireGenericEvent("ChatMessage", 
-                                       self.channel[chanId].target,
-                                       tBundle.message)
+                local message = tBundle.message
+                if self.options.bTag then
+                    message = self:TagMessage(message, tBundle.guild_tag)
+                end
+                Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, message)
             end
         end
     end
@@ -352,6 +337,40 @@ function WsGreenWall:OnChatMessage(channel, tMsg)
             self:ChannelFlush(chanId)
         end
     end
+end
+
+
+-----------------------------------------------------------------------------------------------
+-- Translation
+-----------------------------------------------------------------------------------------------
+
+function WsGreenWall:TransmogrifyMessage(tMessage, f)
+    local clone = DeepCopy(tMessage)
+    for k, v in pairs(clone) do
+        if k == "arMessageSegments" then
+            local t = {}
+            for i, segment in ipairs(v) do
+                t[i] = segment.strText
+            end
+            t = f(t)
+            for i, segment in ipairs(v) do
+                segment.strText = t[i]
+            end
+        end
+    end
+    return clone
+end
+
+function WsGreenWall:TagMessage(tMessage, tag)
+    local function AddTag(x)
+        local z = {}
+        for i, s in ipairs(x) do
+            z[i] = string.format("<%s> %s", tag, s)
+        end
+        return z
+    end
+    
+    return self:TransmogrifyMessage(tMessage, AddTag)
 end
 
 
@@ -375,7 +394,6 @@ function WsGreenWall:OpenConfigForm()
     self.wndMain:FindChild("ToggleOptionDebug"):SetCheck(self.scratch.bDebug)
     
     -- Future features
-    self.wndMain:FindChild("ToggleOptionTag"):Enable(false)
     self.wndMain:FindChild("ToggleOptionAchievement"):Enable(false)
     self.wndMain:FindChild("ToggleOptionRoster"):Enable(false)
     self.wndMain:FindChild("ToggleOptionRank"):Enable(false)
@@ -442,7 +460,7 @@ function WsGreenWall:ChannelFlush(id)
             self:Debug(string.format("flushing channel %d (%d)",
                        id, table.getn(self.channel[id].queue)))
             while table.getn(self.channel[id].queue) > 0 do
-                local tMsg = TransmogrifyMessage(self:ChannelDequeue(id), CapsTable)
+                local message = self:ChannelDequeue(id)
                 local tBundle = {
                     confederation   = self.confederation,
                     guild           = self.guild,
@@ -450,14 +468,14 @@ function WsGreenWall:ChannelFlush(id)
                     type            = id,
                     encrypted       = false,
                     nonce           = nil,
-                    message         = tMsg,
+                    message         = message,
                 }
                 self.channel[id].handle:SendMessage(tBundle)
                 self:Debug(string.format("%s.Tx(%s, %s, %s)",
                         self.channel[id].desc,
                         tBundle.confederation,
                         tBundle.guild_tag,
-                        tMsg.arMessageSegments[1].strText))
+                        message.arMessageSegments[1].strText))
             end
             self:Debug(string.format("channel %d queue empty", id))
         end            
