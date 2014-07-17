@@ -134,7 +134,10 @@ function WsGreenWall:new(o)
         desc    = "Guild",
         name    = "",
         handle  = nil,
+        encrypt = false,
         key     = nil,
+        ts      = 0,
+        ctr     = 0,
         queue   = {},
         target  = nil,
     }
@@ -142,7 +145,10 @@ function WsGreenWall:new(o)
         desc    = "GuildOfficer",
         name    = "",
         handle  = nil,
+        encrypt = false,
         key     = nil,
+        ts      = 0,
+        ctr     = 0,
         queue   = {},
         target  = nil,
     }
@@ -386,6 +392,22 @@ function WsGreenWall:TagMessage(tMessage, tag)
     return self:TransmogrifyMessage(tMessage, AddTag)
 end
 
+function WsGreenWall:GenerateNonce()
+    local timestamp = os.time()
+    local counter   = 0
+    if self.channel[chanId].ts < timestamp then
+        self.channel[chanId].ts  = timestamp
+        self.channel[chanId].ctr = 0
+    else
+        timestamp = self.channel[chanId].ts
+        counter = self.channel[chanId].ctr + 1
+        self.channel[chanId].ctr = counter
+    end
+    return bit32.lrotate(bit32.band(self.channel[chanId].id, 0xFFFFFFFF), 32) +
+           bit32.lrotate(bit32.band(timestamp, 0xFFFFFFF), 4) +
+           bit32.band(counter, 0xF)
+end
+
 
 -----------------------------------------------------------------------------------------------
 -- User Configuration
@@ -452,7 +474,19 @@ function WsGreenWall:ChannelConnect(id, name, key)
     else
         self.channel[id].name   = name
         self.channel[id].handle = handle
-        self.channel[id].key    = key
+        if key ~= nil then
+            self.channel[id].encrypt = true
+            self.channel[id].key     = string.sub(string.rep(key, math.ceil(32 / string.len(key))), 1, 32)
+            self.channel[id].nstate  = { 
+                id  = GameLib:GetPlayerUnit():GetId(),
+                ts  = 0,
+                ctr = 0,
+            }
+        else
+            self.channel[id].encrypt = false
+            self.channel[id].key     = nil
+            self.channel[id].nstate  = nil
+        end
         self:Debug(string.format("connected to bridge channel: %s", name))
     end    
 end
