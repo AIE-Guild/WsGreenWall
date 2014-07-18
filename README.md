@@ -40,7 +40,7 @@ WsGreenWall is designed to require minimal configuration. *The configuration bel
 
 The configuration commands are placed in the Additional Info section of the Guild tab in the Social window.
 
-### GWc: GreenWall Confederation
+### Confederation (Required)
 
 #### Syntax
 
@@ -56,7 +56,7 @@ The configuration commands are placed in the Additional Info section of the Guil
     GWc[Weyland Yutani|wyGChat|public_relations]
 
 
-### GWs: GreenWall Security
+### Security (Optional)
 
 #### Syntax
 
