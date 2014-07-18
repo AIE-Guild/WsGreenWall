@@ -30,4 +30,5 @@ SOFTWARE.
     <Script Name="WsGreenWall.lua"/>
     <Form Name="WsGreenWall.xml"/>
     <Script Name="Libs\Salsa20.lua"/>
+    <Script Name="Libs\SHA256.lua"/>
 </Addon>

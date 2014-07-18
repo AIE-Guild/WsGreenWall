@@ -277,5 +277,5 @@ end
 -- Package Registration
 ----------------------------------------------------------------------------
 
-Apollo.RegisterPackage(Salsa20, "Crypto:Salsa20-1.0", 1, {})
+Apollo.RegisterPackage(Salsa20, "Crypto:Cipher:Salsa20-1.0", 1, {})
 

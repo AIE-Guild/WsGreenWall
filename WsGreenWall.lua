@@ -36,6 +36,7 @@ require "os"
 -- Included libraries
 -----------------------------------------------------------------------------------------------
 local Salsa20 = nil
+local SHA256 = nil
  
 -----------------------------------------------------------------------------------------------
 -- WsGreenWall Module Definition
@@ -96,6 +97,11 @@ local function DeepCopy(orig)
         copy = orig
     end
     return copy
+end
+
+local function Str2Hex(s)
+    local h = string.gsub(s, ".", function (c) return string.format("%02x", string.byte(c)) end)
+    return h
 end
 
 function WsGreenWall:Debug(text, force)
@@ -160,7 +166,8 @@ function WsGreenWall:Init()
 	local bHasConfigureFunction = false
 	local strConfigureButtonText = ""
 	local tDependencies = {
-		"Crypto:Salsa20-1.0",
+		"Crypto:Cipher:Salsa20-1.0",
+		"Crypto:Hash:SHA256-1.0"
 	}
     Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
@@ -171,7 +178,8 @@ end
 -----------------------------------------------------------------------------------------------
 function WsGreenWall:OnLoad()
     -- load libraries
-    Salsa20 = Apollo.GetPackage("Crypto:Salsa20-1.0").tPackage
+    Salsa20 = Apollo.GetPackage("Crypto:Cipher:Salsa20-1.0").tPackage
+    SHA256 = Apollo.GetPackage("Crypto:Hash:SHA256-1.0").tPackage
     
     -- load our form file
 	self.xmlDoc = XmlDoc.CreateFromFile("WsGreenWall.xml")
@@ -259,7 +267,10 @@ function WsGreenWall:ParseInfoMessage(text)
     local conf, tag, chan, key
     conf, chan, tag = string.match(text, "GWc:([%w _-]+):([%w_-]+):([%w _-]*):")
     if conf ~= nil then
-        key = string.match(text, "GWe:([^:]+)")        
+        key = string.match(text, "GWe:([^:]+):")
+        if key ~= nil then
+            key = SHA256.hash(key)
+        end        
     end
     return conf, tag, chan, key
 end
@@ -476,18 +487,19 @@ function WsGreenWall:ChannelConnect(id, name, key)
         self.channel[id].handle = handle
         if key ~= nil then
             self.channel[id].encrypt = true
-            self.channel[id].key     = string.sub(string.rep(key, math.ceil(32 / string.len(key))), 1, 32)
+            self.channel[id].key     = key
             self.channel[id].nstate  = { 
                 id  = GameLib:GetPlayerUnit():GetId(),
                 ts  = 0,
                 ctr = 0,
             }
+            self:Debug(string.format("connected to bridge channel: %s, key: %s", name, Str2Hex(key)))
         else
             self.channel[id].encrypt = false
             self.channel[id].key     = nil
             self.channel[id].nstate  = nil
+            self:Debug(string.format("connected to bridge channel: %s", name))
         end
-        self:Debug(string.format("connected to bridge channel: %s", name))
     end    
 end
 
