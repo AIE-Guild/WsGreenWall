@@ -104,6 +104,16 @@ local function Str2Hex(s)
     return h
 end
 
+local function Num2Str(x, n)
+    local s = ""
+    for i = 1, n do
+        local rem = x % 256
+        s = string.char(rem) .. s
+        x = (x - rem) / 256
+    end
+    return s
+end
+
 function WsGreenWall:Debug(text, force)
     if force == nil then
         force = false
@@ -116,6 +126,19 @@ function WsGreenWall:Debug(text, force)
     end
 end
 
+function WsGreenWall:DebugBundle(tBundle, rx)
+    self:Debug(string.format("%s(%d) %s/%s encrypted=%s nonce=%s",
+            rx and "Rx" or "Tx",
+            tBundle.type,
+            tBundle.confederation,
+            tBundle.guild_tag,
+            tBundle.encrypted and "true" or "false",
+            tBundle.nonce == nil and "" or Str2Hex(tBundle.nonce)
+        ))
+    for _, segment in ipairs(tBundle.message.arMessageSegments) do
+        self:Debug(string.format(" => %s", string.gsub(segment.strText, "[^%g ]", ".")))
+    end
+end
 
 -----------------------------------------------------------------------------------------------
 -- Initialization
@@ -334,20 +357,22 @@ function WsGreenWall:OnGuildInfoMessageUpdate(guild)
 end
 
 function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
+    self:DebugBundle(tBundle)
     if tBundle.confederation == self.confederation and tBundle.guild ~= self.guild then
         local chanId = tBundle.type
         if type(self.channel[chanId]) ~= nil then
-            self:Debug(string.format("%s.Rx(%s, %s, %s)", 
-                    self.channel[chanId].desc,
-                    tBundle.confederation,
-                    tBundle.guild_tag,
-                    tBundle.message.arMessageSegments[1].strText))
             if tBundle.guild_tag ~= self.guild_tag then
-                -- Generate and event for the received chat message.
+                -- Process the recieved chat message.
                 local message = tBundle.message
+                if tBundle.encrypted then
+                    message = self:DecryptMessage(message, self.channel[chanId].key, tBundle.nonce)
+                end
+                
                 if self.options.bTag then
                     message = self:TagMessage(message, tBundle.guild_tag)
                 end
+
+                -- Generate an event for the received chat message.
                 Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, message)
             end
         end
@@ -403,20 +428,35 @@ function WsGreenWall:TagMessage(tMessage, tag)
     return self:TransmogrifyMessage(tMessage, AddTag)
 end
 
-function WsGreenWall:GenerateNonce()
+function WsGreenWall:GenerateNonce(chanId)
     local timestamp = os.time()
     local counter   = 0
-    if self.channel[chanId].ts < timestamp then
-        self.channel[chanId].ts  = timestamp
-        self.channel[chanId].ctr = 0
+    if self.channel[chanId].n.ts < timestamp then
+        self.channel[chanId].n.ts  = timestamp
+        self.channel[chanId].n.ctr = 0
     else
-        timestamp = self.channel[chanId].ts
-        counter = self.channel[chanId].ctr + 1
-        self.channel[chanId].ctr = counter
+        timestamp = self.channel[chanId].n.ts
+        counter = self.channel[chanId].n.ctr + 1
+        self.channel[chanId].n.ctr = counter
     end
-    return bit32.lrotate(bit32.band(self.channel[chanId].id, 0xFFFFFFFF), 32) +
-           bit32.lrotate(bit32.band(timestamp, 0xFFFFFFF), 4) +
-           bit32.band(counter, 0xF)
+    local nonce = Num2Str(self.channel[chanId].n.id, 4)
+    nonce = nonce .. Num2Str(timestamp, 3)
+    nonce = nonce .. Num2Str(counter, 1)
+    return nonce
+end
+
+function WsGreenWall:EncryptMessage(tMessage, key, nonce)
+    local function f(t)
+        return Salsa20.encrypt_table(key, nonce, t, 8) 
+    end
+    return self:TransmogrifyMessage(tMessage, f)
+end
+
+function WsGreenWall:DecryptMessage(tMessage, key, nonce)
+    local function f(t)
+        return Salsa20.decrypt_table(key, nonce, t, 8) 
+    end
+    return self:TransmogrifyMessage(tMessage, f)
 end
 
 
@@ -488,7 +528,7 @@ function WsGreenWall:ChannelConnect(id, name, key)
         if key ~= nil then
             self.channel[id].encrypt = true
             self.channel[id].key     = key
-            self.channel[id].nstate  = { 
+            self.channel[id].n = { 
                 id  = GameLib:GetPlayerUnit():GetId(),
                 ts  = 0,
                 ctr = 0,
@@ -514,12 +554,18 @@ function WsGreenWall:ChannelDequeue(id)
 end
 
 function WsGreenWall:ChannelFlush(id)
+
     if self.channel[id].handle ~= nil then
+
         if table.getn(self.channel[id].queue) > 0 then
+
             self:Debug(string.format("flushing channel %d (%d)",
                        id, table.getn(self.channel[id].queue)))
+
             while table.getn(self.channel[id].queue) > 0 do
+
                 local message = self:ChannelDequeue(id)
+
                 local tBundle = {
                     confederation   = self.confederation,
                     guild           = self.guild,
@@ -529,16 +575,25 @@ function WsGreenWall:ChannelFlush(id)
                     nonce           = nil,
                     message         = message,
                 }
+
+                if self.channel[id].encrypt then
+                    local nonce = self:GenerateNonce(id)
+                    tBundle.message = self:EncryptMessage(message, self.channel[id].key, nonce)
+                    tBundle.nonce = nonce
+                    tBundle.encrypted = true
+                end
+
                 self.channel[id].handle:SendMessage(tBundle)
-                self:Debug(string.format("%s.Tx(%s, %s, %s)",
-                        self.channel[id].desc,
-                        tBundle.confederation,
-                        tBundle.guild_tag,
-                        message.arMessageSegments[1].strText))
+
+                self:DebugBundle(tBundle, false)
             end
+
             self:Debug(string.format("channel %d queue empty", id))
+
         end            
+
     end
+
 end
 
 

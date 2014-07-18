@@ -22,6 +22,14 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+----------------------------------------------------------------------------   
+
+The U.S. Government holds U.S. Patent 6,829,355 on the "Device for and method
+of one-way cryptographic hashing", which has been incorporated into Federal
+Information Processing Standard (FIPS) 180-2. This patent was issued on
+December 7, 2004. The National Security Agency has made U.S. Patent 6,829,355
+available royalty-free.
+
 --]]--------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------
