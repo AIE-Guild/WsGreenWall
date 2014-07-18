@@ -64,6 +64,9 @@ local function badd32(...)
     return band(sum, 0xFFFFFFFF)
 end
 
+--
+-- Taken from http://lua-users.org/wiki/SecureHashAlgorithm
+--
 local function num2str(x, n)
     local s = ""
     for i = 1, n do
@@ -73,7 +76,10 @@ local function num2str(x, n)
     end
     return s
 end
- 
+
+--
+-- Taken from http://lua-users.org/wiki/SecureHashAlgorithm.
+--
 local function str2num(s, n, pos)
     assert(n <= 4)
     local x = 0
