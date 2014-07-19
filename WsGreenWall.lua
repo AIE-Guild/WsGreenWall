@@ -114,29 +114,23 @@ local function Num2Str(x, n)
     return s
 end
 
-function WsGreenWall:Debug(text, force)
-    if force == nil then
-        force = false
-    end
-    if text == nil then
-        text = ""
-    end
-    if self.options.bDebug or force then
-        Print("GreenWall: " .. text)
+function WsGreenWall:Debug(...)
+    if self.options.bDebug then
+        Print(string.format(unpack({...})))
     end
 end
 
 function WsGreenWall:DebugBundle(tBundle, rx)
-    self:Debug(string.format("%s(%d) %s/%s encrypted=%s nonce=%s",
+    self:Debug("%s(%d) %s/%s encrypted=%s nonce=%s",
             rx and "Rx" or "Tx",
             tBundle.type,
             tBundle.confederation,
             tBundle.guild_tag,
             tBundle.encrypted and "true" or "false",
             tBundle.nonce == nil and "" or Str2Hex(tBundle.nonce)
-        ))
+        )
     for _, segment in ipairs(tBundle.message.arMessageSegments) do
-        self:Debug(string.format(" => %s", string.gsub(segment.strText, "[^%g ]", ".")))
+        self:Debug(" => %s", string.gsub(segment.strText, "[^%g ]", "."))
     end
 end
 
@@ -258,7 +252,7 @@ function WsGreenWall:GetGuildConfiguration()
         for _, guild in pairs(GuildLib.GetGuilds()) do
             if guild:GetType() == GuildLib.GuildType_Guild then
                 self.guild = guild
-                self:Debug("guild = " .. guild:GetName())
+                self:Debug("guild = %s", guild:GetName())
             end
         end
     end
@@ -275,8 +269,8 @@ function WsGreenWall:GetGuildConfiguration()
             else
                 self.guild_tag = self.guild:GetName()
             end
-            self:Debug("confederation = " .. self.confederation)
-            self:Debug("guild_tag = " .. self.guild_tag)
+            self:Debug("confederation = %s", self.confederation)
+            self:Debug("guild_tag = %s", self.guild_tag)
 
             self:ChannelConnect(CHAN_GUILD, conf.channel, conf.key)
 
@@ -325,7 +319,7 @@ function WsGreenWall:OnTimer()
     if self.player == nil then
         self.player = GameLib.GetPlayerUnit()
         if self.player ~= nil then
-            self:Debug("player = " .. self.player:GetName())
+            self:Debug("player = %s", self.player:GetName())
             self:GetGuildConfiguration()
         end
     elseif not self.ready then
@@ -408,8 +402,8 @@ function WsGreenWall:OnChatMessage(channel, tMsg)
         if tMsg.bSelf and tMsg.strSender == self.player:GetName() then
             local chanId = ChanType2Id(chanType)
             self:ChannelEnqueue(chanId, tMsg)
-            self:Debug(string.format("%s.queue(%s)", 
-                    self.channel[chanId].desc,  tMsg.arMessageSegments[1].strText))
+            self:Debug("%s.queue(%s)", 
+                    self.channel[chanId].desc,  tMsg.arMessageSegments[1].strText)
             self:ChannelFlush(chanId)
         end
     end
@@ -564,7 +558,7 @@ function WsGreenWall:ChannelConnect(id, name, key)
     local handle = ICCommLib.JoinChannel(name, "OnBridgeMessage", self)
     
     if handle == nil then
-        self:Debug(string.format("ERROR - cannot connect to bridge channel: %s", name))
+        self:Debug("ERROR - cannot connect to bridge channel: %s", name)
     else
         self.channel[id].name   = name
         self.channel[id].handle = handle
@@ -576,12 +570,12 @@ function WsGreenWall:ChannelConnect(id, name, key)
                 ts  = 0,
                 ctr = 0,
             }
-            self:Debug(string.format("connected to bridge channel: %s, key: %s", name, Str2Hex(key)))
+            self:Debug("connected to bridge channel: %s, key: %s", name, Str2Hex(key))
         else
             self.channel[id].encrypt = false
             self.channel[id].key     = nil
             self.channel[id].nstate  = nil
-            self:Debug(string.format("connected to bridge channel: %s", name))
+            self:Debug("connected to bridge channel: %s", name)
         end
     end    
 end
@@ -602,8 +596,7 @@ function WsGreenWall:ChannelFlush(id)
 
         if table.getn(self.channel[id].queue) > 0 then
 
-            self:Debug(string.format("flushing channel %d (%d)",
-                       id, table.getn(self.channel[id].queue)))
+            self:Debug("flushing channel %d (%d)", id, table.getn(self.channel[id].queue))
 
             while table.getn(self.channel[id].queue) > 0 do
 
@@ -631,7 +624,7 @@ function WsGreenWall:ChannelFlush(id)
                 self:DebugBundle(tBundle, false)
             end
 
-            self:Debug(string.format("channel %d queue empty", id))
+            self:Debug("channel %d queue empty", id)
 
         end            
 
