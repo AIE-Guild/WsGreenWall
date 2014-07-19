@@ -267,16 +267,18 @@ function WsGreenWall:GetGuildConfiguration()
         self.timer:Stop()
     else
         local text = self.guild:GetInfoMessage()
-        local chanName, chanKey
-        self.confederation, self.guild_tag, chanName, chanKey = self:ParseInfoMessage(text)
-        if self.confederation ~= nil and chanName ~= nil then
-            if self.guild_tag == nil then
+        local conf = self:ParseInfoMessage(text)
+        if conf.confederation and conf.channel then
+            self.confederation = conf.confederation
+            if conf.guild_tag then
+                self.guild_tag = conf.guild_tag
+            else
                 self.guild_tag = self.guild:GetName()
             end
             self:Debug("confederation = " .. self.confederation)
             self:Debug("guild_tag = " .. self.guild_tag)
 
-            self:ChannelConnect(CHAN_GUILD, chanName, chanKey)
+            self:ChannelConnect(CHAN_GUILD, conf.channel, conf.key)
 
             -- Configuration is complete
             self.ready = true
@@ -287,15 +289,24 @@ function WsGreenWall:GetGuildConfiguration()
 end
 
 function WsGreenWall:ParseInfoMessage(text)
-    local conf, tag, chan, key
-    conf, chan, tag = string.match(text, "GWc:([%w _-]+):([%w_-]+):([%w _-]*):")
-    if conf ~= nil then
-        key = string.match(text, "GWe:([^:]+):")
-        if key ~= nil then
-            key = SHA256.hash(key)
-        end        
+    local conf = {}
+    for _, op in ipairs({"c", "s"}) do
+        local argstr = string.match(text, "GW" .. op .. "%[([^%[%]]+)%]")
+        if argstr then
+            local arg = {}
+            for token in string.gmatch(argstr, "[^|]+") do
+                table.insert(arg, token)
+            end
+            if op == "c" then
+                conf.confederation = arg[1]
+                conf.channel = arg[2]
+                conf.guild_tag = arg[3]
+            elseif op == "s" then
+                conf.key = arg[1] and SHA256.hash(arg[1])
+            end
+        end
     end
-    return conf, tag, chan, key
+    return conf
 end
 
 

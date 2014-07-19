@@ -63,20 +63,10 @@ The configuration commands are placed in the Additional Info section of the Guil
     GWs[<encryption_key>|<cipher_id>]
 
 - *encryption_key* -- This is a text string that will be used as a key for encrypted communications between co-guilds. It may include any printable character other than "[", "]", or "|".
-- *cipher_id* -- [Optional] This is a numeric ID that specifies which cipher should be used for communication.
 
-#### Available Ciphers
-
-1. Salsa20/8
- - The 8-round variant of Salsa20.
-2. Salsa20/12
- - The 12-round variant of Salsa20.
-3. Salsa20
- - The 20-round variant of Salsa20.
  
-#### Examples
+#### Example
 
     GWs[gears coal herb carriage]
-    GWs[e64d8725c826d641198b8bcc8fe56846|3]
 
 
