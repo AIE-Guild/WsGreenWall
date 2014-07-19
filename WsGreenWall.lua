@@ -1,4 +1,4 @@
---[[-------------------------------------------------------------------------------------------
+--[[--------------------------------------------------------------------------
 
 WsGreenWall -- Guild chat bridging for WildStar.
 
@@ -24,28 +24,28 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
---]]-------------------------------------------------------------------------------------------
+--]]--------------------------------------------------------------------------
  
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 -- System libraries
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 require "Window"
 require "os"
 
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 -- Included libraries
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 local Salsa20 = nil
 local SHA256 = nil
  
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 -- WsGreenWall Module Definition
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 local WsGreenWall = {} 
  
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 -- Constants
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 
 local CHAN_GUILD    = 1
 local CHAN_OFFICER  = 2
@@ -63,9 +63,9 @@ local defaultOptions = {
 }
 
  
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 -- Utility Functions
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 
 local function ChanType2Id(chanType)
     if chanType == ChatSystemLib.ChatChannel_Guild then
@@ -140,9 +140,9 @@ function WsGreenWall:DebugBundle(tBundle, rx)
     end
 end
 
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 -- Initialization
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 function WsGreenWall:new(o)
     o = o or {}
     setmetatable(o, self)
@@ -196,9 +196,9 @@ function WsGreenWall:Init()
 end
  
 
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 -- WsGreenWall OnLoad
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 function WsGreenWall:OnLoad()
     -- load libraries
     Salsa20 = Apollo.GetPackage("Crypto:Cipher:Salsa20-1.0").tPackage
@@ -210,9 +210,9 @@ function WsGreenWall:OnLoad()
 end
 
 
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 -- WsGreenWall OnDocLoaded
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 
 function WsGreenWall:OnDocLoaded()
 
@@ -247,9 +247,9 @@ function WsGreenWall:OnDocLoaded()
 end
 
 
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 -- Configuration
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 function WsGreenWall:GetGuildConfiguration()
     assert(self.player ~= nil)
     
@@ -310,7 +310,7 @@ function WsGreenWall:ParseInfoMessage(text)
 end
 
 
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 -- WsGreenWall Functions
 ------------------------------------o-----------------------------------------------------------
 -- Define general functions here
@@ -359,9 +359,9 @@ function WsGreenWall:OnRestore(eLevel, buffer)
 end
 
 
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 -- Event Handlers
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 
 function WsGreenWall:OnGuildInfoMessageUpdate(guild)
     self:GetGuildConfiguration()
@@ -371,17 +371,27 @@ function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
     self:DebugBundle(tBundle)
     if tBundle.confederation == self.confederation and tBundle.guild ~= self.guild then
         local chanId = tBundle.type
-        if type(self.channel[chanId]) ~= nil then
+        if type(self.channel[chanId]) then
             if tBundle.guild_tag ~= self.guild_tag then
-                -- Process the recieved chat message.
+
                 local message = tBundle.message
+                
+                -- Decrypt the message.
                 if tBundle.encrypted then
-                    message = self:DecryptMessage(message, self.channel[chanId].key, tBundle.nonce)
+                    if self.channel[chanId].encrypt then
+                        message = self:DecryptMessage(message, self.channel[chanId].key, tBundle.nonce)
+                    else
+                        message = self:RedactMessage(message)
+                    end
                 end
                 
+                -- Apply tagging.
                 if self.options.bTag then
                     message = self:TagMessage(message, tBundle.guild_tag)
                 end
+                
+                -- Clean up unprintable characters.
+                message = self:GroomMessage(message)
 
                 -- Generate an event for the received chat message.
                 Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, message)
@@ -406,9 +416,9 @@ function WsGreenWall:OnChatMessage(channel, tMsg)
 end
 
 
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 -- Translation
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 
 function WsGreenWall:TransmogrifyMessage(tMessage, f)
     local clone = DeepCopy(tMessage)
@@ -437,6 +447,28 @@ function WsGreenWall:TagMessage(tMessage, tag)
     end
     
     return self:TransmogrifyMessage(tMessage, AddTag)
+end
+
+function WsGreenWall:RedactMessage(tMessage)
+    local function Redact(x)
+        local z = {}
+        for i = 1, #x do
+            z[i] = "[REDACTED]"
+        end
+        return z
+    end
+    return self:TransmogrifyMessage(tMessage, Redact)
+end
+
+function WsGreenWall:GroomMessage(tMessage)
+    local function Groom(x)
+        local z = {}
+        for i, v in ipairs(x) do
+            z[i] = string.gsub(v, "[^%g ]", ".")
+        end
+        return z
+    end
+    return self:TransmogrifyMessage(tMessage, Groom)
 end
 
 function WsGreenWall:GenerateNonce(chanId)
@@ -471,9 +503,9 @@ function WsGreenWall:DecryptMessage(tMessage, key, nonce)
 end
 
 
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 -- User Configuration
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 
 function WsGreenWall:OpenConfigForm()
     -- populate the configuration scratch pad
@@ -524,9 +556,9 @@ function WsGreenWall:OnCancel()
 end
 
 
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 -- Chat Channel Functions
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 
 function WsGreenWall:ChannelConnect(id, name, key)
     local handle = ICCommLib.JoinChannel(name, "OnBridgeMessage", self)
@@ -608,9 +640,9 @@ function WsGreenWall:ChannelFlush(id)
 end
 
 
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 -- WsGreenWall Instance
------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 
 local WsGreenWallInst = WsGreenWall:new()
 WsGreenWallInst:Init()
