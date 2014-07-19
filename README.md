@@ -60,7 +60,7 @@ The configuration commands are placed in the Additional Info section of the Guil
 
 #### Syntax
 
-    GWs[<encryption_key>|<cipher_id>]
+    GWs[<encryption_key>]
 
 - *encryption_key* -- This is a text string that will be used as a key for encrypted communications between co-guilds. It may include any printable character other than "[", "]", or "|".
 
