@@ -55,7 +55,7 @@ local Base64 = {}
 
 require("bit32")
 
-local band, lshift, rshift = bit32.band, bit32.lshift, bit32.rshift
+local band, bor, lshift, rshift = bit32.band, bit32.bor, bit32.lshift, bit32.rshift
 
 ----------------------------------------------------------------------------
 -- Constants and tables
@@ -113,8 +113,8 @@ function Base64.encode(sInput)
     assert(#sInput > 0, "Invalid input, cannot encode an empty string.")    
 
     local b = { sInput:byte(1, #sInput) }
-
-    local sOutput = ""
+    local tOutput = {}
+    
     for i = 1, #b, 3 do
         local c = {}
         c[1] = rshift(b[i], 2)
@@ -131,14 +131,14 @@ function Base64.encode(sInput)
         end
         for j = 1, 4 do
             if c[j] ~= nil then
-                sOutput = sOutput .. toChar(c[j])
+                tOutput[#tOutput + 1] = toChar(c[j])
             else
-                sOutput = sOutput .. '='
+                tOutput[#tOutput + 1] = '='
             end
         end
     end
 
-    return sOutput
+    return table.concat(tOutput)
 end
 
 --- Decodes a Base64 string into an output string of arbitrary bytes.
@@ -148,7 +148,24 @@ end
 -- @return The decoded Base64 string, as a string of bytes.
 function Base64.decode (sInput)
     assert(type(sInput) == "string", "Invalid input, expected type string but got: " .. tostring(sInput) .. " as a: " .. type(sInput))
-    assert(#sInput > 0, "Invalid input, cannot decode an empty string.")
+    assert(#sInput > 0, "Invalid input, cannot decode an empty string.")  
+
+    local tOutput = {}
+    for i = 1, #sInput, 4 do
+        local block, pad = string.gsub(string.sub(sInput, i, i + 3), '=', '')
+        local buffer, b = 0, 0
+        for j = 1, 4 - pad do
+            b = toOctet(string.sub(block, j, j))
+            b = lshift(b, (4 - j) * 6)
+            buffer = bor(buffer, b)
+        end
+        for j = 1, 3 - pad do
+            b = rshift(buffer, (3 - j) * 8) % 256
+            tOutput[#tOutput + 1] = string.char(b)
+        end
+    end
+    
+    return table.concat(tOutput)
 end
 
 
