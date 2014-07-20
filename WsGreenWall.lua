@@ -383,7 +383,7 @@ function WsGreenWall:OnGuildInfoMessageUpdate(guild)
 end
 
 function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
-    self:DebugBundle(tBundle)
+    self:DebugBundle(tBundle, true)
     if tBundle.confederation == self.confederation and tBundle.guild ~= self.guild then
         local chanId = tBundle.type
         if type(self.channel[chanId]) then
@@ -513,6 +513,7 @@ end
 
 function WsGreenWall:DecryptMessage(tMessage, key, nonce)
     local function f(t)
+        self:Debug("key=%s, nonce=%s", Str2Hex(key), Str2Hex(nonce))
         return Salsa20.decrypt_table(key, nonce, t, 8) 
     end
     return self:TransmogrifyMessage(tMessage, f)
