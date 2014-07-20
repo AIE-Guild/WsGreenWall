@@ -269,7 +269,7 @@ end
 -- @return The unencrypted messages.
 function Salsa20.decrypt_table(key, nonce, ciphertext, rounds)
     -- The second easiest thing I've done all week.
-    Salsa20.encrypt_table(key, nonce, ciphertext, rounds)
+    return Salsa20.encrypt_table(key, nonce, ciphertext, rounds)
 end
 
 
