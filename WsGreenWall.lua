@@ -104,6 +104,14 @@ local function Str2Hex(s)
     return h
 end
 
+local function Hex2Str(h)
+    local s = ""
+    for i = 1, #h, 2 do
+        s = s .. string.char(tonumber(string.sub(h, i, i+ 1), 16))
+    end
+    return s
+end
+
 local function Num2Str(x, n)
     local s = ""
     for i = 1, n do
@@ -121,13 +129,14 @@ function WsGreenWall:Debug(...)
 end
 
 function WsGreenWall:DebugBundle(tBundle, rx)
-    self:Debug("%s(%d) %s/%s encrypted=%s nonce=%s",
+    self:Debug("%s(%d) %s@%s:%s encrypted=%s nonce=%s",
             rx and "Rx" or "Tx",
             tBundle.type,
+            tBundle.message.strSender,
             tBundle.confederation,
             tBundle.guild_tag,
             tBundle.encrypted and "true" or "false",
-            tBundle.nonce == nil and "" or Str2Hex(tBundle.nonce)
+            tBundle.nonce and tBundle.nonce or ""
         )
     for _, segment in ipairs(tBundle.message.arMessageSegments) do
         self:Debug(" => %s", string.gsub(segment.strText, "[^%g ]", "."))
@@ -371,9 +380,10 @@ function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
                 local message = tBundle.message
                 
                 -- Decrypt the message.
-                if tBundle.encrypted then
+                if tBundle.encrypted and tBundle.nonce then
                     if self.channel[chanId].encrypt then
-                        message = self:DecryptMessage(message, self.channel[chanId].key, tBundle.nonce)
+                        local nonce = Hex2Str(tBundle.nonce)
+                        message = self:DecryptMessage(message, self.channel[chanId].key, nonce)
                     else
                         message = self:RedactMessage(message)
                     end
@@ -615,7 +625,7 @@ function WsGreenWall:ChannelFlush(id)
                 if self.channel[id].encrypt then
                     local nonce = self:GenerateNonce(id)
                     tBundle.message = self:EncryptMessage(message, self.channel[id].key, nonce)
-                    tBundle.nonce = nonce
+                    tBundle.nonce = Str2Hex(nonce)
                     tBundle.encrypted = true
                 end
 
