@@ -403,11 +403,11 @@ function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
                 
                 -- Apply tagging.
                 if self.options.bTag then
-                    message = self:TagMessage(message, tBundle.guild_tag)
+                    -- message = self:TagMessage(message, tBundle.guild_tag)
                 end
                 
                 -- Clean up unprintable characters.
-                message = self:GroomMessage(message)
+                -- message = self:GroomMessage(message)
 
                 -- Generate an event for the received chat message.
                 Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, message)
@@ -508,14 +508,15 @@ function WsGreenWall:EncryptMessage(tMessage, key, nonce)
     local function f(t)
         return Salsa20.encrypt_table(key, nonce, t, 8) 
     end
+    self:Debug("encrypting with key=%s, nonce=%s", Str2Hex(key), Str2Hex(nonce))
     return self:TransmogrifyMessage(tMessage, f)
 end
 
 function WsGreenWall:DecryptMessage(tMessage, key, nonce)
     local function f(t)
-        self:Debug("key=%s, nonce=%s", Str2Hex(key), Str2Hex(nonce))
         return Salsa20.decrypt_table(key, nonce, t, 8) 
     end
+    self:Debug("decrypting with key=%s, nonce=%s", Str2Hex(key), Str2Hex(nonce))
     return self:TransmogrifyMessage(tMessage, f)
 end
 
