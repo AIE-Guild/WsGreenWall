@@ -54,12 +54,14 @@ local CHAN_OFFICER  = 2
 -- Default configuration values
 --
 local defaultOptions = {
-    bTag            = true,
-    bAchievement    = false,
-    bRoster         = true,
-    bRank           = false,
-    bOfficerChat    = false,
-    bDebug          = false,
+    bDebug              = false,
+    bTag                = true,
+    bAchievement        = false,
+    bRoster             = true,
+    bRank               = false,
+    bOfficerChat        = false,
+    sOfficerChatChannel = "",
+    sOfficerChatKey     = "",
 }
 
  
@@ -156,6 +158,7 @@ function WsGreenWall:new(o)
     for k, v in pairs(defaultOptions) do
         self.options[k] = v
     end
+    self.version        = nil
     self.ready          = false
     self.player         = nil
     self.guild          = nil
@@ -210,6 +213,7 @@ function WsGreenWall:OnLoad()
     -- load our form file
 	self.xmlDoc = XmlDoc.CreateFromFile("WsGreenWall.xml")
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
+	self.version = XmlDoc.CreateFromFile("toc.xml"):ToTable().Version
 end
 
 
@@ -226,6 +230,7 @@ function WsGreenWall:OnDocLoaded()
 			return
 		end
 		
+		self.wndMain:FindChild("Title"):SetText(string.format("GreenWall v%s", self.version))
 	    self.wndMain:Show(false, true)
 
 		-- if the xmlDoc is no longer needed, you should set it to nil
@@ -282,6 +287,12 @@ function WsGreenWall:GetGuildConfiguration()
             self:Debug("guild_tag = %s", self.guild_tag)
 
             self:ChannelConnect(CHAN_GUILD, conf.channel, conf.key)
+            
+            if self.options.sOfficerChatChannel then
+                local occhan = self.options.sOfficerChatChannel
+                local ockey  = SHA256.hash(self.options.sOfficerChatKey)
+                self:ChannelConnect(CHAN_OFFICER, occhan, ockey)
+            end
 
             -- Configuration is complete
             self.ready = true
@@ -524,6 +535,8 @@ function WsGreenWall:OpenConfigForm()
     self.wndMain:FindChild("ToggleOptionRoster"):SetCheck(self.scratch.bRoster)
     self.wndMain:FindChild("ToggleOptionRank"):SetCheck(self.scratch.bRank)
     self.wndMain:FindChild("ToggleOptionOfficerChat"):SetCheck(self.scratch.bOfficerChat)
+    self.wndMain:FindChild("InputOptionOfficerChatChannel"):SetText(self.scratch.sOfficerChatChannel)
+    self.wndMain:FindChild("InputOptionOfficerChatKey"):SetText(self.scratch.sOfficerChatKey)
     self.wndMain:FindChild("ToggleOptionDebug"):SetCheck(self.scratch.bDebug)
     
     -- Future features
@@ -542,6 +555,13 @@ function WsGreenWall:OnToggleOption(handler, control)
     self.wndMain:FindChild(name):SetCheck(self.scratch[index])
 end
 
+-- Update handling
+function WsGreenWall:OnUpdateOption(handler, control, string)
+    local name = control:GetName()
+    local index = string.gsub(name, "InputOption(%w+)", "s%1")
+    self.scratch[index] = string
+end
+
 -- when the OK button is clicked
 function WsGreenWall:OnOK()
     -- save the new config set
@@ -550,8 +570,8 @@ function WsGreenWall:OnOK()
     end
 
     self:Debug("updated configuration")
-
 	self.wndMain:Close() -- hide the window
+	self:GetGuildConfiguration()
 end
 
 -- when the Cancel button is clicked
@@ -580,7 +600,8 @@ function WsGreenWall:ChannelConnect(id, name, key)
                 ts  = 0,
                 ctr = 0,
             }
-            self:Debug("connected to bridge channel: %s, key: %s", name, Str2Hex(key))
+            self:Debug("connected to bridge channel: %s, type: %s, key: %s",
+                    name, id, Str2Hex(key))
         else
             self.channel[id].encrypt = false
             self.channel[id].key     = nil
