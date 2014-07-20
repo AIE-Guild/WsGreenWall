@@ -54,12 +54,14 @@ local CHAN_OFFICER  = 2
 -- Default configuration values
 --
 local defaultOptions = {
-    bTag            = true,
-    bAchievement    = false,
-    bRoster         = true,
-    bRank           = false,
-    bOfficerChat    = false,
-    bDebug          = false,
+    bDebug              = false,
+    bTag                = true,
+    bAchievement        = false,
+    bRoster             = true,
+    bRank               = false,
+    bOfficerChat        = false,
+    sOfficerChatChannel = "",
+    sOfficerChatKey     = "",
 }
 
  
@@ -104,6 +106,14 @@ local function Str2Hex(s)
     return h
 end
 
+local function Hex2Str(h)
+    local s = ""
+    for i = 1, #h, 2 do
+        s = s .. string.char(tonumber(string.sub(h, i, i+ 1), 16))
+    end
+    return s
+end
+
 local function Num2Str(x, n)
     local s = ""
     for i = 1, n do
@@ -121,13 +131,15 @@ function WsGreenWall:Debug(...)
 end
 
 function WsGreenWall:DebugBundle(tBundle, rx)
-    self:Debug("%s(%d) %s/%s encrypted=%s nonce=%s",
+    self:Debug("%s(%d) %s@%s:%s %s encrypted=%s nonce=%s",
             rx and "Rx" or "Tx",
             tBundle.type,
+            tBundle.message.strSender,
             tBundle.confederation,
             tBundle.guild_tag,
+            tBundle.version,
             tBundle.encrypted and "true" or "false",
-            tBundle.nonce == nil and "" or Str2Hex(tBundle.nonce)
+            tBundle.nonce and tBundle.nonce or ""
         )
     for _, segment in ipairs(tBundle.message.arMessageSegments) do
         self:Debug(" => %s", string.gsub(segment.strText, "[^%g ]", "."))
@@ -147,6 +159,7 @@ function WsGreenWall:new(o)
     for k, v in pairs(defaultOptions) do
         self.options[k] = v
     end
+    self.version        = nil
     self.ready          = false
     self.player         = nil
     self.guild          = nil
@@ -201,6 +214,7 @@ function WsGreenWall:OnLoad()
     -- load our form file
 	self.xmlDoc = XmlDoc.CreateFromFile("WsGreenWall.xml")
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
+	self.version = XmlDoc.CreateFromFile("toc.xml"):ToTable().Version
 end
 
 
@@ -217,6 +231,7 @@ function WsGreenWall:OnDocLoaded()
 			return
 		end
 		
+		self.wndMain:FindChild("Title"):SetText(string.format("GreenWall v%s", self.version))
 	    self.wndMain:Show(false, true)
 
 		-- if the xmlDoc is no longer needed, you should set it to nil
@@ -273,6 +288,12 @@ function WsGreenWall:GetGuildConfiguration()
             self:Debug("guild_tag = %s", self.guild_tag)
 
             self:ChannelConnect(CHAN_GUILD, conf.channel, conf.key)
+            
+            if self.options.sOfficerChatChannel then
+                local occhan = self.options.sOfficerChatChannel
+                local ockey  = SHA256.hash(self.options.sOfficerChatKey)
+                self:ChannelConnect(CHAN_OFFICER, occhan, ockey)
+            end
 
             -- Configuration is complete
             self.ready = true
@@ -285,7 +306,7 @@ end
 function WsGreenWall:ParseInfoMessage(text)
     local conf = {}
     for _, op in ipairs({"c", "s"}) do
-        local argstr = string.match(text, "GW" .. op .. "%[([^%[%]]+)%]")
+        local argstr = string.match(text, 'GW' .. op .. '=%"([^%"%"]+)%"')
         if argstr then
             local arg = {}
             for token in string.gmatch(argstr, "[^|]+") do
@@ -371,9 +392,10 @@ function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
                 local message = tBundle.message
                 
                 -- Decrypt the message.
-                if tBundle.encrypted then
+                if tBundle.encrypted and tBundle.nonce then
                     if self.channel[chanId].encrypt then
-                        message = self:DecryptMessage(message, self.channel[chanId].key, tBundle.nonce)
+                        local nonce = Hex2Str(tBundle.nonce)
+                        message = self:DecryptMessage(message, self.channel[chanId].key, nonce)
                     else
                         message = self:RedactMessage(message)
                     end
@@ -514,6 +536,8 @@ function WsGreenWall:OpenConfigForm()
     self.wndMain:FindChild("ToggleOptionRoster"):SetCheck(self.scratch.bRoster)
     self.wndMain:FindChild("ToggleOptionRank"):SetCheck(self.scratch.bRank)
     self.wndMain:FindChild("ToggleOptionOfficerChat"):SetCheck(self.scratch.bOfficerChat)
+    self.wndMain:FindChild("InputOptionOfficerChatChannel"):SetText(self.scratch.sOfficerChatChannel)
+    self.wndMain:FindChild("InputOptionOfficerChatKey"):SetText(self.scratch.sOfficerChatKey)
     self.wndMain:FindChild("ToggleOptionDebug"):SetCheck(self.scratch.bDebug)
     
     -- Future features
@@ -532,6 +556,13 @@ function WsGreenWall:OnToggleOption(handler, control)
     self.wndMain:FindChild(name):SetCheck(self.scratch[index])
 end
 
+-- Update handling
+function WsGreenWall:OnUpdateOption(handler, control, string)
+    local name = control:GetName()
+    local index = string.gsub(name, "InputOption(%w+)", "s%1")
+    self.scratch[index] = string
+end
+
 -- when the OK button is clicked
 function WsGreenWall:OnOK()
     -- save the new config set
@@ -540,8 +571,8 @@ function WsGreenWall:OnOK()
     end
 
     self:Debug("updated configuration")
-
 	self.wndMain:Close() -- hide the window
+	self:GetGuildConfiguration()
 end
 
 -- when the Cancel button is clicked
@@ -570,7 +601,8 @@ function WsGreenWall:ChannelConnect(id, name, key)
                 ts  = 0,
                 ctr = 0,
             }
-            self:Debug("connected to bridge channel: %s, key: %s", name, Str2Hex(key))
+            self:Debug("connected to bridge channel: %s, type: %s, key: %s",
+                    name, id, Str2Hex(key))
         else
             self.channel[id].encrypt = false
             self.channel[id].key     = nil
@@ -603,6 +635,7 @@ function WsGreenWall:ChannelFlush(id)
                 local message = self:ChannelDequeue(id)
 
                 local tBundle = {
+                    version         = self.version,
                     confederation   = self.confederation,
                     guild           = self.guild,
                     guild_tag       = self.guild_tag,
@@ -615,7 +648,7 @@ function WsGreenWall:ChannelFlush(id)
                 if self.channel[id].encrypt then
                     local nonce = self:GenerateNonce(id)
                     tBundle.message = self:EncryptMessage(message, self.channel[id].key, nonce)
-                    tBundle.nonce = nonce
+                    tBundle.nonce = Str2Hex(nonce)
                     tBundle.encrypted = true
                 end
 
