@@ -37,6 +37,7 @@ require "os"
 ------------------------------------------------------------------------------
 local Salsa20 = nil
 local SHA256 = nil
+local Base64 = nil
  
 ------------------------------------------------------------------------------
 -- WsGreenWall Module Definition
@@ -197,7 +198,8 @@ function WsGreenWall:Init()
 	local strConfigureButtonText = ""
 	local tDependencies = {
 		"Crypto:Cipher:Salsa20-1.0",
-		"Crypto:Hash:SHA256-1.0"
+		"Crypto:Hash:SHA256-1.0",
+		"Encoding:Base64-1.0"
 	}
     Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
@@ -210,6 +212,7 @@ function WsGreenWall:OnLoad()
     -- load libraries
     Salsa20 = Apollo.GetPackage("Crypto:Cipher:Salsa20-1.0").tPackage
     SHA256 = Apollo.GetPackage("Crypto:Hash:SHA256-1.0").tPackage
+    Base64 = Apollo.GetPackage("Encoding:Base64-1.0").tPackage
     
     -- load our form file
 	self.xmlDoc = XmlDoc.CreateFromFile("WsGreenWall.xml")
