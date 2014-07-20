@@ -287,6 +287,12 @@ function WsGreenWall:GetGuildConfiguration()
             self:Debug("guild_tag = %s", self.guild_tag)
 
             self:ChannelConnect(CHAN_GUILD, conf.channel, conf.key)
+            
+            if self.options.sOfficerChatChannel then
+                local occhan = self.options.sOfficerChatChannel
+                local ockey  = SHA256.hash(self.options.sOfficerChatKey)
+                self:ChannelConnect(CHAN_OFFICER, occhan, ockey)
+            end
 
             -- Configuration is complete
             self.ready = true
@@ -564,8 +570,8 @@ function WsGreenWall:OnOK()
     end
 
     self:Debug("updated configuration")
-
 	self.wndMain:Close() -- hide the window
+	self:GetGuildConfiguration()
 end
 
 -- when the Cancel button is clicked
@@ -594,7 +600,8 @@ function WsGreenWall:ChannelConnect(id, name, key)
                 ts  = 0,
                 ctr = 0,
             }
-            self:Debug("connected to bridge channel: %s, key: %s", name, Str2Hex(key))
+            self:Debug("connected to bridge channel: %s, type: %s, key: %s",
+                    name, id, Str2Hex(key))
         else
             self.channel[id].encrypt = false
             self.channel[id].key     = nil
