@@ -131,12 +131,13 @@ function WsGreenWall:Debug(...)
 end
 
 function WsGreenWall:DebugBundle(tBundle, rx)
-    self:Debug("%s(%d) %s@%s:%s encrypted=%s nonce=%s",
+    self:Debug("%s(%d) %s@%s:%s %s encrypted=%s nonce=%s",
             rx and "Rx" or "Tx",
             tBundle.type,
             tBundle.message.strSender,
             tBundle.confederation,
             tBundle.guild_tag,
+            tBundle.version,
             tBundle.encrypted and "true" or "false",
             tBundle.nonce and tBundle.nonce or ""
         )
@@ -634,6 +635,7 @@ function WsGreenWall:ChannelFlush(id)
                 local message = self:ChannelDequeue(id)
 
                 local tBundle = {
+                    version         = self.version,
                     confederation   = self.confederation,
                     guild           = self.guild,
                     guild_tag       = self.guild_tag,
