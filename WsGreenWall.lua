@@ -406,11 +406,11 @@ function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
                 
                 -- Apply tagging.
                 if self.options.bTag then
-                    -- message = self:TagMessage(message, tBundle.guild_tag)
+                    message = self:TagMessage(message, tBundle.guild_tag)
                 end
                 
                 -- Clean up unprintable characters.
-                -- message = self:GroomMessage(message)
+                message = self:GroomMessage(message)
 
                 -- Generate an event for the received chat message.
                 Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, message)
@@ -454,6 +454,14 @@ function WsGreenWall:TransmogrifyMessage(tMessage, f)
         end
     end
     return clone
+end
+
+local function MapElem(t, f)
+    local z = {}
+    for i, v in ipairs(t) do
+        z[i] = f(v)
+    end
+    return z
 end
 
 function WsGreenWall:TagMessage(tMessage, tag)
@@ -509,7 +517,7 @@ end
 
 function WsGreenWall:EncryptMessage(tMessage, key, nonce)
     local function f(t)
-        return Salsa20.encrypt_table(key, nonce, t, 8) 
+        return MapElem(Salsa20.encrypt_table(key, nonce, t, 8), Base64.encode) 
     end
     self:Debug("encrypting with key=%s, nonce=%s", Str2Hex(key), Str2Hex(nonce))
     return self:TransmogrifyMessage(tMessage, f)
@@ -517,7 +525,7 @@ end
 
 function WsGreenWall:DecryptMessage(tMessage, key, nonce)
     local function f(t)
-        return Salsa20.decrypt_table(key, nonce, t, 8) 
+        return MapElem(Salsa20.decrypt_table(key, nonce, t, 8), Base64.decode) 
     end
     self:Debug("decrypting with key=%s, nonce=%s", Str2Hex(key), Str2Hex(nonce))
     return self:TransmogrifyMessage(tMessage, f)
