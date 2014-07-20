@@ -294,7 +294,7 @@ end
 function WsGreenWall:ParseInfoMessage(text)
     local conf = {}
     for _, op in ipairs({"c", "s"}) do
-        local argstr = string.match(text, "GW" .. op .. "%[([^%[%]]+)%]")
+        local argstr = string.match(text, 'GW' .. op .. '=%"([^%"%"]+)%"')
         if argstr then
             local arg = {}
             for token in string.gmatch(argstr, "[^|]+") do
