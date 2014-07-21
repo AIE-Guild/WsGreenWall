@@ -525,7 +525,7 @@ end
 
 function WsGreenWall:DecryptMessage(tMessage, key, nonce)
     local function f(t)
-        return MapElem(Salsa20.decrypt_table(key, nonce, t, 8), Base64.decode) 
+        return Salsa20.decrypt_table(key, nonce, MapElem(t, Base64.decode), 8)
     end
     self:Debug("decrypting with key=%s, nonce=%s", Str2Hex(key), Str2Hex(nonce))
     return self:TransmogrifyMessage(tMessage, f)
