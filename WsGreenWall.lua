@@ -143,7 +143,7 @@ function WsGreenWall:DebugBundle(tBundle, rx)
             tBundle.nonce and tBundle.nonce or ""
         )
     for _, segment in ipairs(tBundle.message.arMessageSegments) do
-        self:Debug(" => %s", string.gsub(segment.strText, "[^%g ]", "."))
+        self:Debug(" => %s", string.gsub(segment.strText, "[^%w%p ]", "."))
     end
 end
 
@@ -491,7 +491,7 @@ function WsGreenWall:GroomMessage(tMessage)
     local function Groom(x)
         local z = {}
         for i, v in ipairs(x) do
-            z[i] = string.gsub(v, "[^%g ]", ".")
+            z[i] = string.gsub(v, "[^%w%p ]", ".")
         end
         return z
     end
