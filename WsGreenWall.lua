@@ -294,7 +294,10 @@ function WsGreenWall:GetGuildConfiguration()
             
             if self.options.sOfficerChatChannel then
                 local occhan = self.options.sOfficerChatChannel
-                local ockey  = SHA256.hash(self.options.sOfficerChatKey)
+                local ockey  = nil
+                if string.len(self.options.sOfficerChatKey) > 0 then
+                    ockey = SHA256.hash(self.options.sOfficerChatKey)
+                end
                 self:ChannelConnect(CHAN_OFFICER, occhan, ockey)
             end
 
