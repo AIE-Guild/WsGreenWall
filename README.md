@@ -44,29 +44,29 @@ The configuration commands are placed in the Additional Info section of the Guil
 
 #### Syntax
 
-    GWc[<confederation_name>|<channel_name>|<guild_tag>]
+    GWc="<confederation_name>|<channel_name>|<guild_tag>"
 
-- *confederation_name* -- This is an identifier for the confederation.  It may include any printable character other than "[", "]", or "|".
+- *confederation_name* -- This is an identifier for the confederation.  It may include any printable character other than double quotes of the "|" character.
 - *channel_name* -- This is the name of the channel used for guild chat bridging. It may include letters, numbers, dashes, and underscores.
-- *guild_tag* -- [Optional] This specifies a short nickname for the guild which will show up when members of other co-guilds in the confederation enable tagging. It may include any printable character other than "[", "]", or "|".
+- *guild_tag* -- [Optional] This specifies a short nickname for the guild which will show up when members of other co-guilds in the confederation enable tagging. It may include any printable character other than double quotes of the "|" character.
 
 #### Examples
 
-    GWc[Blue Sun|bsc38839]
-    GWc[Weyland Yutani|wyGChat|public_relations]
+    GWc="Blue Sun|bsc38839"
+    GWc="Weyland Yutani|wyGChat|public_relations"
 
 
 ### Security (Optional)
 
 #### Syntax
 
-    GWs[<encryption_key>]
+    GWs="<encryption_key>"
 
 - *encryption_key* -- This is a text string that will be used as a key for encrypted communications between co-guilds. It may include any printable character other than "[", "]", or "|".
 
  
 #### Example
 
-    GWs[gears coal herb carriage]
+    GWs="gears coal herb carriage"
 
 

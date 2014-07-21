@@ -37,6 +37,7 @@ require "os"
 ------------------------------------------------------------------------------
 local Salsa20 = nil
 local SHA256 = nil
+local Base64 = nil
  
 ------------------------------------------------------------------------------
 -- WsGreenWall Module Definition
@@ -142,7 +143,7 @@ function WsGreenWall:DebugBundle(tBundle, rx)
             tBundle.nonce and tBundle.nonce or ""
         )
     for _, segment in ipairs(tBundle.message.arMessageSegments) do
-        self:Debug(" => %s", string.gsub(segment.strText, "[^%g ]", "."))
+        self:Debug(" => %s", string.gsub(segment.strText, "[^%w%p ]", "."))
     end
 end
 
@@ -197,7 +198,8 @@ function WsGreenWall:Init()
 	local strConfigureButtonText = ""
 	local tDependencies = {
 		"Crypto:Cipher:Salsa20-1.0",
-		"Crypto:Hash:SHA256-1.0"
+		"Crypto:Hash:SHA256-1.0",
+		"Encoding:Base64-1.0"
 	}
     Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
@@ -210,6 +212,7 @@ function WsGreenWall:OnLoad()
     -- load libraries
     Salsa20 = Apollo.GetPackage("Crypto:Cipher:Salsa20-1.0").tPackage
     SHA256 = Apollo.GetPackage("Crypto:Hash:SHA256-1.0").tPackage
+    Base64 = Apollo.GetPackage("Encoding:Base64-1.0").tPackage
     
     -- load our form file
 	self.xmlDoc = XmlDoc.CreateFromFile("WsGreenWall.xml")
@@ -403,11 +406,11 @@ function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
                 
                 -- Apply tagging.
                 if self.options.bTag then
-                    -- message = self:TagMessage(message, tBundle.guild_tag)
+                    message = self:TagMessage(message, tBundle.guild_tag)
                 end
                 
                 -- Clean up unprintable characters.
-                -- message = self:GroomMessage(message)
+                message = self:GroomMessage(message)
 
                 -- Generate an event for the received chat message.
                 Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, message)
@@ -453,6 +456,14 @@ function WsGreenWall:TransmogrifyMessage(tMessage, f)
     return clone
 end
 
+local function MapElem(t, f)
+    local z = {}
+    for i, v in ipairs(t) do
+        z[i] = f(v)
+    end
+    return z
+end
+
 function WsGreenWall:TagMessage(tMessage, tag)
     local function AddTag(x)
         local z = {}
@@ -480,7 +491,7 @@ function WsGreenWall:GroomMessage(tMessage)
     local function Groom(x)
         local z = {}
         for i, v in ipairs(x) do
-            z[i] = string.gsub(v, "[^%g ]", ".")
+            z[i] = string.gsub(v, "[^%w%p ]", ".")
         end
         return z
     end
@@ -506,7 +517,7 @@ end
 
 function WsGreenWall:EncryptMessage(tMessage, key, nonce)
     local function f(t)
-        return Salsa20.encrypt_table(key, nonce, t, 8) 
+        return MapElem(Salsa20.encrypt_table(key, nonce, t, 8), Base64.encode) 
     end
     self:Debug("encrypting with key=%s, nonce=%s", Str2Hex(key), Str2Hex(nonce))
     return self:TransmogrifyMessage(tMessage, f)
@@ -514,7 +525,7 @@ end
 
 function WsGreenWall:DecryptMessage(tMessage, key, nonce)
     local function f(t)
-        return Salsa20.decrypt_table(key, nonce, t, 8) 
+        return MapElem(Salsa20.decrypt_table(key, nonce, t, 8), Base64.decode) 
     end
     self:Debug("decrypting with key=%s, nonce=%s", Str2Hex(key), Str2Hex(nonce))
     return self:TransmogrifyMessage(tMessage, f)
