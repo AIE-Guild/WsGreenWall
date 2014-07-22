@@ -57,7 +57,6 @@ local CHAN_OFFICER  = 2
 local defaultOptions = {
     bDebug              = false,
     bTag                = true,
-    bAchievement        = false,
     bRoster             = true,
     bRank               = false,
     bOfficerChat        = false,
@@ -548,7 +547,6 @@ function WsGreenWall:OpenConfigForm()
     
     -- update the configuration form
     self.wndMain:FindChild("ToggleOptionTag"):SetCheck(self.scratch.bTag)
-    self.wndMain:FindChild("ToggleOptionAchievement"):SetCheck(self.scratch.bAchievement)
     self.wndMain:FindChild("ToggleOptionRoster"):SetCheck(self.scratch.bRoster)
     self.wndMain:FindChild("ToggleOptionRank"):SetCheck(self.scratch.bRank)
     self.wndMain:FindChild("ToggleOptionOfficerChat"):SetCheck(self.scratch.bOfficerChat)
@@ -557,7 +555,6 @@ function WsGreenWall:OpenConfigForm()
     self.wndMain:FindChild("ToggleOptionDebug"):SetCheck(self.scratch.bDebug)
     
     -- Future features
-    self.wndMain:FindChild("ToggleOptionAchievement"):Enable(false)
     self.wndMain:FindChild("ToggleOptionRoster"):Enable(false)
     self.wndMain:FindChild("ToggleOptionRank"):Enable(false)
         

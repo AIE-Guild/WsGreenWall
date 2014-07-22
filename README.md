@@ -62,8 +62,7 @@ The configuration commands are placed in the Additional Info section of the Guil
 
     GWs="<encryption_key>"
 
-- *encryption_key* -- This is a text string that will be used as a key for encrypted communications between co-guilds. It may include any printable character other than "[", "]", or "|".
-
+- *encryption_key* -- This is a text string that will be used as a key for encrypted communications between co-guilds. It may include any printable character other than double quotes of the "|" character.
  
 #### Example
 
