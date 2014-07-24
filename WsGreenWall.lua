@@ -311,6 +311,10 @@ function WsGreenWall:GetGuildConfiguration()
         end 
     end
 
+    self.wndMain:FindChild("ToggleOptionOfficerChat"):Enable(self:IsOfficer())
+    self.wndMain:FindChild("InputOptionOfficerChatChannel"):Enable(self:IsOfficer())
+    self.wndMain:FindChild("InputOptionOfficerChatKey"):Enable(self:IsOfficer())
+
 end
 
 function WsGreenWall:ParseInfoMessage(text)
@@ -334,6 +338,20 @@ function WsGreenWall:ParseInfoMessage(text)
     return conf
 end
 
+function WsGreenWall:IsOfficer()
+    if self.guild then
+        local curr = self.guild:GetMyRank()
+        local arRanks = self.guild:GetRanks()
+        if arRanks then
+            for i, tRankInfo in ipairs(arRanks) do
+                if i == curr then
+                    return tRankInfo.bCouncilChat
+                end
+            end
+        end
+    end
+    return false
+end
 
 ------------------------------------------------------------------------------
 -- WsGreenWall Functions
