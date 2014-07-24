@@ -51,13 +51,16 @@ local WsGreenWall = {}
 local CHAN_GUILD    = 1
 local CHAN_OFFICER  = 2
 
+local EVENT_CHAT    = 1
+local EVENT_ROSTER  = 2
+local EVENT_RANK    = 3
+
 --
 -- Default configuration values
 --
 local defaultOptions = {
     bDebug              = false,
     bTag                = true,
-    bAchievement        = false,
     bRoster             = true,
     bRank               = false,
     bOfficerChat        = false,
@@ -131,10 +134,11 @@ function WsGreenWall:Debug(...)
     end
 end
 
-function WsGreenWall:DebugBundle(tBundle, rx)
-    self:Debug("%s(%d) %s@%s:%s %s encrypted=%s nonce=%s",
+function WsGreenWall:DebugBundle(tBundle, nChannelId, rx)
+    self:Debug("%s(%d:%d) %s@%s:%s %s encrypted=%s nonce=%s",
             rx and "Rx" or "Tx",
-            tBundle.type,
+            nChannelId,
+            tBundle.event_type and tBundle.event_type or 0,
             tBundle.message.strSender,
             tBundle.confederation,
             tBundle.guild_tag,
@@ -237,6 +241,9 @@ function WsGreenWall:OnDocLoaded()
 		self.wndMain:FindChild("Title"):SetText(string.format("GreenWall v%s", self.version))
 	    self.wndMain:Show(false, true)
 
+        self.channel[CHAN_GUILD].target   = GetChannel(ChatSystemLib.ChatChannel_Guild)
+        self.channel[CHAN_OFFICER].target = GetChannel(ChatSystemLib.ChatChannel_GuildOfficer)
+
 		-- if the xmlDoc is no longer needed, you should set it to nil
 		-- self.xmlDoc = nil
 		
@@ -252,9 +259,6 @@ function WsGreenWall:OnDocLoaded()
         -- Start the timer
 		self.timer = ApolloTimer.Create(1.0, true, "OnTimer", self)
 
-		-- Do additional Addon initialization here
-	    self.channel[CHAN_GUILD].target   = GetChannel(ChatSystemLib.ChatChannel_Guild)
-        self.channel[CHAN_OFFICER].target = GetChannel(ChatSystemLib.ChatChannel_GuildOfficer)
 	end
 end
 
@@ -307,6 +311,10 @@ function WsGreenWall:GetGuildConfiguration()
         end 
     end
 
+    self.wndMain:FindChild("ToggleOptionOfficerChat"):Enable(self:IsOfficer())
+    self.wndMain:FindChild("InputOptionOfficerChatChannel"):Enable(self:IsOfficer())
+    self.wndMain:FindChild("InputOptionOfficerChatKey"):Enable(self:IsOfficer())
+
 end
 
 function WsGreenWall:ParseInfoMessage(text)
@@ -330,6 +338,20 @@ function WsGreenWall:ParseInfoMessage(text)
     return conf
 end
 
+function WsGreenWall:IsOfficer()
+    if self.guild then
+        local curr = self.guild:GetMyRank()
+        local arRanks = self.guild:GetRanks()
+        if arRanks then
+            for i, tRankInfo in ipairs(arRanks) do
+                if i == curr then
+                    return tRankInfo.bCouncilChat
+                end
+            end
+        end
+    end
+    return false
+end
 
 ------------------------------------------------------------------------------
 -- WsGreenWall Functions
@@ -389,10 +411,15 @@ function WsGreenWall:OnGuildInfoMessageUpdate(guild)
 end
 
 function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
-    self:DebugBundle(tBundle, true)
-    if tBundle.confederation == self.confederation and tBundle.guild ~= self.guild then
-        local chanId = tBundle.type
-        if type(self.channel[chanId]) then
+    
+    local chanId = self:GetChannelId(channel)
+
+    if chanId then
+
+        self:DebugBundle(tBundle, chanId, true)
+        
+        if tBundle.confederation == self.confederation and tBundle.guild ~= self.guild then
+
             if tBundle.guild_tag ~= self.guild_tag then
 
                 local message = tBundle.message
@@ -418,8 +445,11 @@ function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
                 -- Generate an event for the received chat message.
                 Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, message)
             end
+
         end
+
     end
+
 end
 
 function WsGreenWall:OnChatMessage(channel, tMsg)
@@ -429,7 +459,7 @@ function WsGreenWall:OnChatMessage(channel, tMsg)
             chanType == ChatSystemLib.ChatChannel_GuildOfficer then
         if tMsg.bSelf and tMsg.strSender == self.player:GetName() then
             local chanId = ChanType2Id(chanType)
-            self:ChannelEnqueue(chanId, tMsg)
+            self:ChannelEnqueue(chanId, EVENT_CHAT, tMsg)
             self:Debug("%s.queue(%s)", 
                     self.channel[chanId].desc,  tMsg.arMessageSegments[1].strText)
             self:ChannelFlush(chanId)
@@ -548,7 +578,6 @@ function WsGreenWall:OpenConfigForm()
     
     -- update the configuration form
     self.wndMain:FindChild("ToggleOptionTag"):SetCheck(self.scratch.bTag)
-    self.wndMain:FindChild("ToggleOptionAchievement"):SetCheck(self.scratch.bAchievement)
     self.wndMain:FindChild("ToggleOptionRoster"):SetCheck(self.scratch.bRoster)
     self.wndMain:FindChild("ToggleOptionRank"):SetCheck(self.scratch.bRank)
     self.wndMain:FindChild("ToggleOptionOfficerChat"):SetCheck(self.scratch.bOfficerChat)
@@ -557,7 +586,6 @@ function WsGreenWall:OpenConfigForm()
     self.wndMain:FindChild("ToggleOptionDebug"):SetCheck(self.scratch.bDebug)
     
     -- Future features
-    self.wndMain:FindChild("ToggleOptionAchievement"):Enable(false)
     self.wndMain:FindChild("ToggleOptionRoster"):Enable(false)
     self.wndMain:FindChild("ToggleOptionRank"):Enable(false)
         
@@ -628,52 +656,64 @@ function WsGreenWall:ChannelConnect(id, name, key)
     end    
 end
 
-function WsGreenWall:ChannelEnqueue(id, data)
-    table.insert(self.channel[id].queue, data)
+function WsGreenWall:GetChannelId(uHandle)
+    for i, v in ipairs(self.channel) do
+        if uHandle == v.handle then
+            return i
+        end
+    end
+    return
 end
 
-function WsGreenWall:ChannelDequeue(id)
-    if table.getn(self.channel[id].queue) > 0 then
-        return table.remove(self.channel[id].queue, 1)
+function WsGreenWall:ChannelEnqueue(nChannelId, nType, tData)
+    local elem = { type = nType, data = tData }
+    table.insert(self.channel[nChannelId].queue, elem)
+end
+
+function WsGreenWall:ChannelDequeue(nChannelId)
+    if table.getn(self.channel[nChannelId].queue) > 0 then
+        local elem = table.remove(self.channel[nChannelId].queue, 1)
+        return elem.type, elem.data
     end
 end
 
-function WsGreenWall:ChannelFlush(id)
+function WsGreenWall:ChannelFlush(nChannelId)
 
-    if self.channel[id].handle ~= nil then
+    if self.channel[nChannelId].handle ~= nil then
 
-        if table.getn(self.channel[id].queue) > 0 then
+        if table.getn(self.channel[nChannelId].queue) > 0 then
 
-            self:Debug("flushing channel %d (%d)", id, table.getn(self.channel[id].queue))
+            self:Debug("flushing channel %d (%d)", nChannelId, table.getn(self.channel[nChannelId].queue))
 
-            while table.getn(self.channel[id].queue) > 0 do
+            while table.getn(self.channel[nChannelId].queue) > 0 do
 
-                local message = self:ChannelDequeue(id)
+                local nType, tMessage = self:ChannelDequeue(nChannelId)
 
                 local tBundle = {
                     version         = self.version,
                     confederation   = self.confederation,
                     guild           = self.guild,
                     guild_tag       = self.guild_tag,
-                    type            = id,
+                    event_type      = EVENT_CHAT,                    
+                    type            = nChannelId, -- For backwards compatibility with 1.0.0-beta and earlier.
                     encrypted       = false,
                     nonce           = nil,
-                    message         = message,
+                    message         = tMessage,
                 }
 
-                if self.channel[id].encrypt then
-                    local nonce = self:GenerateNonce(id)
-                    tBundle.message = self:EncryptMessage(message, self.channel[id].key, nonce)
+                if self.channel[nChannelId].encrypt then
+                    local nonce = self:GenerateNonce(nChannelId)
+                    tBundle.message = self:EncryptMessage(tMessage, self.channel[nChannelId].key, nonce)
                     tBundle.nonce = Str2Hex(nonce)
                     tBundle.encrypted = true
                 end
 
-                self.channel[id].handle:SendMessage(tBundle)
+                self.channel[nChannelId].handle:SendMessage(tBundle)
 
-                self:DebugBundle(tBundle, false)
+                self:DebugBundle(tBundle, nChannelId, false)
             end
 
-            self:Debug("channel %d queue empty", id)
+            self:Debug("channel %d queue empty", nChannelId)
 
         end            
 

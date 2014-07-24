@@ -26,7 +26,7 @@ SOFTWARE.
 
 -->
 <?xml version="1.0" encoding="UTF-8"?>
-<Addon Author="Mark Rogaski" APIVersion="9" Name="WsGreenWall" Version="1.0.0-beta" Description="Guild chat bridging for WildStar.">
+<Addon Author="Mark Rogaski" APIVersion="9" Name="WsGreenWall" Version="1.0.0" Description="Guild chat bridging for WildStar.">
     <Script Name="WsGreenWall.lua"/>
     <Form Name="WsGreenWall.xml"/>
     <Script Name="Libs\Base64.lua"/>
