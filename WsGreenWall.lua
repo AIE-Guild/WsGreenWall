@@ -241,6 +241,9 @@ function WsGreenWall:OnDocLoaded()
 		self.wndMain:FindChild("Title"):SetText(string.format("GreenWall v%s", self.version))
 	    self.wndMain:Show(false, true)
 
+        self.channel[CHAN_GUILD].target   = GetChannel(ChatSystemLib.ChatChannel_Guild)
+        self.channel[CHAN_OFFICER].target = GetChannel(ChatSystemLib.ChatChannel_GuildOfficer)
+
 		-- if the xmlDoc is no longer needed, you should set it to nil
 		-- self.xmlDoc = nil
 		
@@ -256,9 +259,6 @@ function WsGreenWall:OnDocLoaded()
         -- Start the timer
 		self.timer = ApolloTimer.Create(1.0, true, "OnTimer", self)
 
-		-- Do additional Addon initialization here
-	    self.channel[CHAN_GUILD].target   = GetChannel(ChatSystemLib.ChatChannel_Guild)
-        self.channel[CHAN_OFFICER].target = GetChannel(ChatSystemLib.ChatChannel_GuildOfficer)
 	end
 end
 
