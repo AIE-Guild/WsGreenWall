@@ -6,9 +6,9 @@ Guild chat bridging for WildStar.
 Distribution
 ------------
 
-This WildStar addon is currently available on GitHub.
+This WildStar addon source, feature requests, and bug reporting is hosted on [https://github.com/AIE-Guild/WsGreenWall](GitHub).
 
-[https://github.com/AIE-Guild/WsGreenWall](https://github.com/AIE-Guild/WsGreenWall)
+The latest version can also be found on [http://www.curse.com/ws-addons/wildstar/222578-wsgreenwall](Curse Gaming).
 
 
 Glossary
