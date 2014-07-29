@@ -151,6 +151,7 @@ function WsGreenWall:DebugBundle(tBundle, nChannelId, rx)
     end
 end
 
+
 ------------------------------------------------------------------------------
 -- Initialization
 ------------------------------------------------------------------------------
@@ -166,34 +167,11 @@ function WsGreenWall:new(o)
     end
     self.version        = nil
     self.ready          = false
-    self.player         = nil
+    self.player_name    = nil
     self.guild          = nil
     self.confederation  = nil
     self.guild_tag      = nil
-    self.channel = {}
-    self.channel[CHAN_GUILD] = {
-        desc    = "Guild",
-        name    = "",
-        handle  = nil,
-        encrypt = false,
-        key     = nil,
-        ts      = 0,
-        ctr     = 0,
-        queue   = {},
-        target  = nil,
-    }
-    self.channel[CHAN_OFFICER] = {
-        desc    = "GuildOfficer",
-        name    = "",
-        handle  = nil,
-        encrypt = false,
-        key     = nil,
-        ts      = 0,
-        ctr     = 0,
-        queue   = {},
-        target  = nil,
-    }
-
+    self.channel = { {}, {} }
     return o
 end
 
@@ -241,16 +219,15 @@ function WsGreenWall:OnDocLoaded()
 		self.wndMain:FindChild("Title"):SetText(string.format("GreenWall v%s", self.version))
 	    self.wndMain:Show(false, true)
 
-        self.channel[CHAN_GUILD].target   = GetChannel(ChatSystemLib.ChatChannel_Guild)
-        self.channel[CHAN_OFFICER].target = GetChannel(ChatSystemLib.ChatChannel_GuildOfficer)
+        self:InitChannel(CHAN_GUILD)
+        self:InitChannel(CHAN_OFFICER)
 
 		-- if the xmlDoc is no longer needed, you should set it to nil
 		-- self.xmlDoc = nil
 		
 		-- Register handlers for events, slash commands and timer, etc.
 		-- e.g. Apollo.RegisterEventHandler("KeyDown", "OnKeyDown", self)
-		Apollo.RegisterSlashCommand("greenwall", "OnCli", self)
-        Apollo.RegisterSlashCommand("gw", "OnCli", self)
+        Apollo.RegisterSlashCommand("gw", "OnCommand", self)
         
         -- Register event handlers
         Apollo.RegisterEventHandler("GuildInfoMessage", "OnGuildInfoMessageUpdate", self)
@@ -267,7 +244,7 @@ end
 -- Configuration
 ------------------------------------------------------------------------------
 function WsGreenWall:GetGuildConfiguration()
-    assert(self.player ~= nil)
+    assert(self.player_name ~= nil)
     
     -- Check guild membership
     if self.guild == nil then
@@ -294,7 +271,7 @@ function WsGreenWall:GetGuildConfiguration()
             self:Debug("confederation = %s", self.confederation)
             self:Debug("guild_tag = %s", self.guild_tag)
 
-            self:ChannelConnect(CHAN_GUILD, conf.channel, conf.key)
+            self:ConnectChannel(CHAN_GUILD, conf.channel, conf.key)
             
             if self.options.sOfficerChatChannel then
                 local occhan = self.options.sOfficerChatChannel
@@ -302,12 +279,17 @@ function WsGreenWall:GetGuildConfiguration()
                 if string.len(self.options.sOfficerChatKey) > 0 then
                     ockey = SHA256.hash(self.options.sOfficerChatKey)
                 end
-                self:ChannelConnect(CHAN_OFFICER, occhan, ockey)
+                self:ConnectChannel(CHAN_OFFICER, occhan, ockey)
+            else
+                self:InitChannel(CHAN_OFFICER)            
             end
 
             -- Configuration is complete
             self.ready = true
             self.timer:Stop()
+        else
+            self:InitChannel(CHAN_GUILD)
+            self:InitChannel(CHAN_OFFICER)
         end 
     end
 
@@ -358,17 +340,17 @@ end
 ------------------------------------o-----------------------------------------------------------
 -- Define general functions here
 
--- on SlashCommand "/greenwall"
-function WsGreenWall:OnCli(cmdStr, argStr)
+-- on SlashCommand "/gw"
+function WsGreenWall:OnCommand(sCmd, sArgs)
     self:OpenConfigForm()
 end
 
 -- on timer
 function WsGreenWall:OnTimer()
-    if self.player == nil then
-        self.player = GameLib.GetPlayerUnit()
-        if self.player ~= nil then
-            self:Debug("player = %s", self.player:GetName())
+    if self.player_name == nil then
+        self.player_name = GameLib.GetPlayerUnit():GetName()
+        if self.player_name ~= nil then
+            self:Debug("player = %s", self.player_name)
             self:GetGuildConfiguration()
         end
     elseif not self.ready then
@@ -457,7 +439,7 @@ function WsGreenWall:OnChatMessage(channel, tMsg)
     local chanType = channel:GetType()
     if chanType == ChatSystemLib.ChatChannel_Guild or 
             chanType == ChatSystemLib.ChatChannel_GuildOfficer then
-        if tMsg.bSelf and tMsg.strSender == self.player:GetName() then
+        if tMsg.bSelf and tMsg.strSender == self.player_name then
             local chanId = ChanType2Id(chanType)
             self:ChannelEnqueue(chanId, EVENT_CHAT, tMsg)
             self:Debug("%s.queue(%s)", 
@@ -629,11 +611,37 @@ end
 -- Chat Channel Functions
 ------------------------------------------------------------------------------
 
-function WsGreenWall:ChannelConnect(id, name, key)
+function WsGreenWall:InitChannel(nChanId)
+    local desc, target
+    if nChanId == CHAN_GUILD then
+        desc = "Guild"
+        target = GetChannel(ChatSystemLib.ChatChannel_Guild)
+    elseif nChanId == CHAN_OFFICER then
+        desc = "GuildOfficer"
+        target = GetChannel(ChatSystemLib.ChatChannel_GuildOfficer)
+    else
+        self:Debug("ERROR: invalid channel ID %d", nChanId)
+        return
+    end
+    self.channel[nChanId] = {
+        desc    = desc,
+        name    = "",
+        handle  = nil,
+        encrypt = false,
+        key     = nil,
+        n       = nil,
+        queue   = {},
+        target  = target,
+    }
+    self:Debug("initialized bridge channel %d", nChanId)
+end
+
+function WsGreenWall:ConnectChannel(id, name, key)
     local handle = ICCommLib.JoinChannel(name, "OnBridgeMessage", self)
     
     if handle == nil then
         self:Debug("ERROR - cannot connect to bridge channel: %s", name)
+        self:InitChannel(id)
     else
         self.channel[id].name   = name
         self.channel[id].handle = handle
@@ -650,7 +658,7 @@ function WsGreenWall:ChannelConnect(id, name, key)
         else
             self.channel[id].encrypt = false
             self.channel[id].key     = nil
-            self.channel[id].nstate  = nil
+            self.channel[id].n       = nil
             self:Debug("connected to bridge channel: %s", name)
         end
     end    
