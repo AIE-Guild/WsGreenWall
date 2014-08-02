@@ -38,6 +38,7 @@ require "os"
 local Salsa20 = nil
 local SHA256 = nil
 local Base64 = nil
+
  
 ------------------------------------------------------------------------------
 -- WsGreenWall Module Definition
@@ -459,16 +460,38 @@ function WsGreenWall:TransmogrifyMessage(tMessage, f)
     for k, v in pairs(clone) do
         if k == "arMessageSegments" then
             local t = {}
-            for i, segment in ipairs(v) do
-                t[i] = segment.strText
+            for i, tSegment in ipairs(v) do
+                t[i] = tSegment.strText
             end
             t = f(t)
-            for i, segment in ipairs(v) do
-                segment.strText = t[i]
+            for i, tSegment in ipairs(v) do
+                tSegment.strText = t[i]
             end
         end
     end
     return clone
+end
+
+function WsGreenWall:FlattenMessage(tMessage)
+    local clone = DeepCopy(tMessage)
+    for k, v in pairs(clone) do
+        if k == "arMessageSegments" then
+            local t = {}
+            for i, tSegment in ipairs(v) do
+                if tSegment.uItem then
+                    tSegment.strText = String_GetWeaselString(Apollo.GetString("CRB_Brackets"), tSegment.uItem:GetName())
+                    tSegment.uItem = nil
+                elseif tSegment.uQuest then
+                    tSegment.strText = String_GetWeaselString(Apollo.GetString("CRB_Brackets"), tSegment.uQuest:GetTitle())
+                    tSegment.uQuest = nil
+                elseif tSegment.uArchiveArticle then
+                    tSegment.strText = String_GetWeaselString(Apollo.GetString("CRB_Brackets"), tSegment.uArchiveArticle:GetTitle())
+                    tSegment.uArchiveArticle = nil
+                end
+            end
+        end
+    end
+    return clone    
 end
 
 local function MapElem(t, f)
@@ -535,7 +558,7 @@ function WsGreenWall:EncryptMessage(tMessage, key, nonce)
         return MapElem(Salsa20.encrypt_table(key, nonce, t, 8), Base64.encode) 
     end
     self:Debug("encrypting with key=%s, nonce=%s", Str2Hex(key), Str2Hex(nonce))
-    return self:TransmogrifyMessage(tMessage, f)
+    return self:TransmogrifyMessage(self:FlattenMessage(tMessage), f)
 end
 
 function WsGreenWall:DecryptMessage(tMessage, key, nonce)
