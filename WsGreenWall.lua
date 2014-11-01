@@ -725,7 +725,7 @@ function WsGreenWall:ChannelFlush(nChannelId)
                     confederation   = self.confederation,
                     guild           = self.guild,
                     guild_tag       = self.guild_tag,
-                    event_type      = EVENT_CHAT,                    
+                    event_type      = nType,                    
                     type            = nChannelId, -- For backwards compatibility with 1.0.0-beta and earlier.
                     encrypted       = false,
                     nonce           = nil,
