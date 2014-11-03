@@ -417,16 +417,21 @@ function WsGreenWall:OnBridgeMessage(channel, tBundle, strSender)
                     end
                 end
                 
-                -- Apply tagging.
-                if self.options.bTag then
-                    message = self:TagMessage(message, tBundle.guild_tag)
+                if tBundle.event_type == EVENT_CHAT then
+
+                    -- Apply tagging.
+                    if self.options.bTag then
+                        message = self:TagMessage(message, tBundle.guild_tag)
+                    end
+                
+                    -- Clean up unprintable characters.
+                    message = self:GroomMessage(message)
+
+                    -- Generate an event for the received chat message.
+                    Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, message)
+                
                 end
                 
-                -- Clean up unprintable characters.
-                message = self:GroomMessage(message)
-
-                -- Generate an event for the received chat message.
-                Event_FireGenericEvent("ChatMessage", self.channel[chanId].target, message)
             end
 
         end
